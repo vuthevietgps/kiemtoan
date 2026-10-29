@@ -67,3 +67,5 @@ Những câu trả lời này vẫn cần được đưa vào đặc tả có ti
 Ghi ngay dưới mã QD tương ứng khi có xác nhận: nội dung quyết định; người duyệt; ngày; liên kết/bằng chứng; YC/đặc tả ảnh hưởng; dữ liệu cần chuyển; test cần bổ sung/cập nhật; thay đổi lịch/chi phí. Nếu quyết định khác phương án trên, cập nhật kế hoạch và đặc tả trước khi sửa hành vi.
 
 **04 — sửa ngoài phạm vi 07, người dùng đồng ý trong chat ngày 29/10/2026** (“Sửa module 04”): sự kiện huỷ hợp đồng (`contracts-command.service.ts`) chờ trình nghe xử lý xong (`await emitAsync`) như các sự kiện HĐ khác, thay vì chạy ngầm sau khi trả kết quả. Lý do: trình đồng bộ lịch báo cáo (06) chạy ngầm để lại transaction dở dang khi tắt ứng dụng, làm e2e treo/hỏng chập chờn. Không đổi nghiệp vụ huỷ HĐ.
+
+**QD12 — kho git, người dùng chọn trong chat ngày 29/10/2026** (“Commit trước” → “Tạo kho git tại đây”): tạo kho git **cục bộ** tại thư mục dự án (nhánh `main`, cấu hình riêng `core.autocrlf=false`, người commit `dinhvigps07`), commit đầu `16d477b` gồm toàn bộ mã hiện có (00–06 và 07 tới 07-D2). Chưa có remote, chưa push; kho mã chính / GitHub và quy trình nhánh vẫn chờ chốt.
