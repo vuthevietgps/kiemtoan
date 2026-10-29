@@ -1,0 +1,169 @@
+<nz-drawer
+  [nzVisible]="!!detail()"
+  [nzWidth]="width()"
+  [nzTitle]="text.detail"
+  (nzOnClose)="closed.emit()"
+>
+  <ng-container *nzDrawerContent>
+    @if (detail(); as o) {
+      <h3 class="title">{{ o.obligationType.code }} — {{ o.obligationType.name }}</h3>
+      <div class="tags">
+        <nz-tag [nzColor]="colors[o.displayStatus]">{{ labels[o.displayStatus] }}</nz-tag>
+        @if (o.filedLate) {
+          <nz-tag nzColor="orange">{{ text.filedLate }}</nz-tag>
+        }
+      </div>
+
+      @if (error()) {
+        <nz-alert class="block" nzType="error" nzShowIcon [nzMessage]="error()" />
+      }
+
+      <dl class="fields">
+        <dt>{{ text.customer }}</dt>
+        <dd>
+          <button type="button" class="link" (click)="openCustomer.emit(o.customer.id)">
+            {{ o.customer.name }}
+          </button>
+        </dd>
+        <dt>{{ text.period }}</dt>
+        <dd>{{ o.period }}</dd>
+        <dt>{{ text.dueDate }}</dt>
+        <dd>{{ o.dueDate | date: 'dd/MM/yyyy' }}</dd>
+        @if (o.dueDate !== o.originalDueDate) {
+          <dt>{{ text.originalDue }}</dt>
+          <dd>{{ o.originalDueDate | date: 'dd/MM/yyyy' }}</dd>
+        }
+        <dt>{{ text.owner }}</dt>
+        <dd>{{ o.customer.owner?.fullName ?? '—' }}</dd>
+        @if (o.version) {
+          <dt>{{ text.version }}</dt>
+          <dd>v{{ o.version.versionNo }}</dd>
+          @if (o.version.legalBasis) {
+            <dt>{{ text.legalBasis }}</dt>
+            <dd>{{ o.version.legalBasis }}</dd>
+          }
+        }
+        @if (o.filedAt) {
+          <dt>{{ text.filedAt }}</dt>
+          <dd>{{ o.filedAt | date: 'dd/MM/yyyy' }}</dd>
+        }
+        @if (o.receiptDocument; as r) {
+          <dt>{{ text.receipt }}</dt>
+          <dd>
+            <button type="button" class="link" (click)="downloadReceipt.emit(r)">{{ r.fileName }}</button>
+          </dd>
+        }
+      </dl>
+
+      <h4>{{ text.tasks }}</h4>
+      @for (t of o.tasks; track t.id) {
+        <button type="button" class="linked" (click)="openTask.emit(t.id)">
+          <span>{{ t.code }} · {{ t.title }}</span>
+          <nz-tag [nzColor]="taskColors[t.status]">{{ taskLabels[t.status] }}</nz-tag>
+        </button>
+      } @empty {
+        <p class="muted">{{ text.noTasks }}</p>
+      }
+
+      @if (canUpdate() && isOpen() && mode() === 'none') {
+        <div class="actions">
+          @if (o.status === 'NOT_DUE') {
+            <button nz-button type="button" [nzLoading]="busy()" (click)="prepare()">{{ text.prepare }}</button>
+          }
+          <button nz-button nzType="primary" type="button" (click)="start('file')">{{ text.file }}</button>
+          <button nz-button type="button" (click)="start('notApplicable')">{{ text.notApplicable }}</button>
+        </div>
+      }
+      @if (canReopen() && mode() === 'none') {
+        <div class="actions">
+          <button nz-button type="button" (click)="start('reopen')">{{ text.reopen }}</button>
+        </div>
+      }
+
+      @if (mode() === 'file') {
+        <div class="form">
+          <label>
+            {{ text.filedAt }}
+            <nz-date-picker
+              nzFormat="dd/MM/yyyy"
+              [nzDisabledDate]="disabledDate"
+              [nzAllowClear]="false"
+              [ngModel]="filedAt()"
+              (ngModelChange)="filedAt.set($event)"
+            />
+          </label>
+          <div class="field">
+            {{ text.receiptFile }}
+            <div class="picker">
+              <input #picker type="file" hidden (change)="pickFile($event)" />
+              <button nz-button nzSize="small" type="button" (click)="picker.click()">{{ text.chooseFile }}</button>
+              <span class="muted">{{ file()?.name ?? text.noFile }}</span>
+            </div>
+          </div>
+          <label>
+            {{ text.note }}
+            <textarea nz-input rows="2" maxlength="1000" [ngModel]="note()" (ngModelChange)="note.set($event)"></textarea>
+          </label>
+          <div class="actions">
+            <button nz-button type="button" (click)="reset()">{{ text.cancel }}</button>
+            <button
+              nz-button
+              nzType="primary"
+              type="button"
+              [disabled]="!file() || !filedAt()"
+              [nzLoading]="busy()"
+              (click)="submit()"
+            >
+              {{ text.confirm }}
+            </button>
+          </div>
+        </div>
+      }
+
+      @if (mode() === 'notApplicable' || mode() === 'reopen') {
+        <div class="form">
+          <label>
+            {{ text.reason }}
+            <textarea nz-input rows="2" maxlength="500" [ngModel]="reason()" (ngModelChange)="reason.set($event)"></textarea>
+          </label>
+          <div class="actions">
+            <button nz-button type="button" (click)="reset()">{{ text.cancel }}</button>
+            <button
+              nz-button
+              nzType="primary"
+              type="button"
+              [disabled]="!reasonValid()"
+              [nzLoading]="busy()"
+              (click)="submit()"
+            >
+              {{ mode() === 'reopen' ? text.reopen : text.notApplicable }}
+            </button>
+          </div>
+        </div>
+      }
+
+      <h4>{{ text.history }}</h4>
+      <nz-timeline>
+        @for (e of o.events; track e.id) {
+          <nz-timeline-item>
+            <div>
+              <strong>{{ labels[e.toStatus] }}</strong>
+              <span class="muted"> · {{ e.occurredAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+            @if (e.oldDue && e.newDue) {
+              <div class="muted">
+                {{ e.oldDue | date: 'dd/MM/yyyy' }} → {{ e.newDue | date: 'dd/MM/yyyy' }}
+              </div>
+            }
+            @if (e.note) {
+              <div>{{ e.note }}</div>
+            }
+            @if (e.actorName) {
+              <div class="muted">{{ e.actorName }}</div>
+            }
+          </nz-timeline-item>
+        }
+      </nz-timeline>
+    }
+  </ng-container>
+</nz-drawer>

@@ -1,0 +1,130 @@
+<app-page-header [title]="text.title" [subtitle]="text.subtitle">
+  <a nz-button *appCan="'workflow-templates:view'" routerLink="/service-catalog/workflows">{{ text.workflows }}</a>
+  <button nz-button nzType="primary" *appCan="'service-catalog:create'" (click)="open(null)">
+    <nz-icon nzType="plus" /> {{ text.add }}
+  </button>
+</app-page-header>
+
+<div class="panel">
+  <div class="filters">
+    <input
+      nz-input
+      [(ngModel)]="search"
+      [placeholder]="text.search"
+      (keyup.enter)="applySearch()"
+      (blur)="applySearch()"
+    />
+    <nz-select [ngModel]="store.filter().active" (ngModelChange)="setActive($event)">
+      <nz-option nzValue="" [nzLabel]="text.allStatuses" />
+      <nz-option nzValue="true" [nzLabel]="text.activeOnly" />
+      <nz-option nzValue="false" [nzLabel]="text.inactiveOnly" />
+    </nz-select>
+  </div>
+
+  @if (store.error()) {
+    <nz-alert nzType="error" [nzMessage]="store.error()" nzShowIcon [nzAction]="retryTpl" />
+    <ng-template #retryTpl>
+      <button nz-button nzSize="small" (click)="store.load()">{{ text.retry }}</button>
+    </ng-template>
+  }
+
+  <nz-table
+    [nzData]="store.items()"
+    [nzLoading]="store.loading()"
+    [nzShowPagination]="false"
+    [nzScroll]="{ x: '1210px' }"
+    nzSize="middle"
+  >
+    <thead>
+      <tr>
+        <th nzWidth="100px">{{ text.code }}</th>
+        <th nzWidth="240px">{{ text.name }}</th>
+        <th nzWidth="120px">{{ text.cycle }}</th>
+        <th nzWidth="140px" class="text-right">@if (canFinance()) { {{ text.defaultPrice }} }</th>
+        <th nzWidth="170px">{{ text.pricingBasis }}</th>
+        <th nzWidth="170px">{{ text.defaultWorkflow }}</th>
+        <th nzWidth="120px">{{ text.status }}</th>
+        <th nzWidth="150px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (s of store.items(); track s.id) {
+        <tr>
+          <td>{{ s.code }}</td>
+          <td>
+            {{ s.name }}
+            @if (s.description) {
+              <div class="text-muted">{{ s.description }}</div>
+            }
+          </td>
+          <td>{{ cycleLabels[s.cycle] }}</td>
+          <td class="text-right">@if (canFinance()) { {{ s.defaultPrice | vnd }} }</td>
+          <td>
+            {{ basisLabels[s.pricingBasis] }}
+            @if (s.pricingUnit) {
+              <div class="text-muted">{{ s.pricingUnit }}</div>
+            }
+          </td>
+          <td>
+            @if (s.defaultWorkflow; as wf) {
+              {{ wf.code }}
+              <div class="text-muted">
+                @if (wf.versionNo) { v{{ wf.versionNo }} · {{ wf.stepCount }} bước } @else { {{ text.noActiveWorkflow }} }
+              </div>
+            } @else {
+              <span class="text-muted">{{ text.noWorkflow }}</span>
+            }
+          </td>
+          <td>
+            <nz-tag [nzColor]="s.isActive ? 'green' : 'default'">
+              {{ s.isActive ? text.activeOnly : text.inactiveOnly }}
+            </nz-tag>
+          </td>
+          <td>
+            <button nz-button nzType="link" nzSize="small" *appCan="'finance:view'" (click)="pricing.set(s)">
+              {{ text.priceLists }}
+            </button>
+            <button nz-button nzType="link" nzSize="small" *appCan="'service-catalog:update'" (click)="open(s)">
+              {{ text.edit }}
+            </button>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </nz-table>
+</div>
+
+<nz-modal
+  [nzVisible]="formVisible()"
+  [nzTitle]="editing() ? text.editService : text.addService"
+  [nzFooter]="null"
+  nzWidth="760px"
+  (nzOnCancel)="formVisible.set(false)"
+>
+  <ng-container *nzModalContent>
+    @if (formVisible()) {
+      @if (store.saveError()) {
+        <nz-alert nzType="error" [nzMessage]="store.saveError()" nzShowIcon style="margin-bottom: 12px" />
+      }
+      <app-service-form
+        [service]="editing()"
+        [saving]="store.saving()"
+        (submitted)="save($event)"
+        (cancelled)="formVisible.set(false)"
+      />
+    }
+  </ng-container>
+</nz-modal>
+
+<nz-drawer
+  [nzVisible]="!!pricing()"
+  [nzTitle]="text.priceListsTitle + (pricing() ? ' — ' + pricing()!.name : '')"
+  [nzWidth]="'min(720px, 100vw)'"
+  (nzOnClose)="pricing.set(null)"
+>
+  <ng-container *nzDrawerContent>
+    @if (pricing(); as service) {
+      <app-price-lists-panel [service]="service" />
+    }
+  </ng-container>
+</nz-drawer>

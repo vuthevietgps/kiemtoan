@@ -1,0 +1,175 @@
+<form nz-form nzLayout="vertical" [formGroup]="form" (ngSubmit)="submit()">
+  <div nz-row [nzGutter]="16">
+    <div nz-col [nzXs]="24" [nzMd]="16">
+      <nz-form-item>
+        <nz-form-label nzRequired>{{ text.name }}</nz-form-label>
+        <nz-form-control [nzErrorTip]="text.nameError">
+          <input nz-input formControlName="name" [placeholder]="text.exampleName" />
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+    <div nz-col [nzXs]="24" [nzMd]="8">
+      <nz-form-item>
+        <nz-form-label nzRequired>{{ text.taxCode }}</nz-form-label>
+        <nz-form-control [nzErrorTip]="text.taxCodeError">
+          <input nz-input formControlName="taxCode" placeholder="0101234567" />
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+    <div nz-col [nzXs]="24">
+      <nz-form-item>
+        <nz-form-label>{{ text.address }}</nz-form-label>
+        <nz-form-control>
+          <input nz-input formControlName="address" />
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+    <div nz-col [nzXs]="24" [nzMd]="12">
+      <nz-form-item>
+        <nz-form-label>{{ text.representative }}</nz-form-label>
+        <nz-form-control>
+          <input nz-input formControlName="legalRep" />
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+    <div nz-col [nzXs]="24" [nzMd]="12">
+      <nz-form-item>
+        <nz-form-label>{{ text.businessType }}</nz-form-label>
+        <nz-form-control>
+          <input nz-input formControlName="businessType" [placeholder]="text.exampleType" />
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+    <div nz-col [nzXs]="24" [nzMd]="8">
+      <nz-form-item>
+        <nz-form-label>{{ text.taxPeriod }}</nz-form-label>
+        <nz-form-control>
+          <nz-select formControlName="taxPeriod">
+            @for (o of taxPeriodOptions; track o.value) {
+              <nz-option [nzValue]="o.value" [nzLabel]="o.label" />
+            }
+          </nz-select>
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+    <div nz-col [nzXs]="24" [nzMd]="8">
+      <nz-form-item>
+        <nz-form-label>{{ text.status }}</nz-form-label>
+        <nz-form-control>
+          <nz-select formControlName="status">
+            @for (o of statusOptions; track o.value) {
+              <nz-option [nzValue]="o.value" [nzLabel]="o.label" />
+            }
+          </nz-select>
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+    <div nz-col [nzXs]="24" [nzMd]="8">
+      <nz-form-item>
+        <nz-form-label>{{ text.owner }}</nz-form-label>
+        <nz-form-control>
+          <nz-select formControlName="ownerId" nzShowSearch nzAllowClear [nzPlaceHolder]="text.defaultOwner">
+            @for (u of users(); track u.id) {
+              <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+            }
+          </nz-select>
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+    <div nz-col [nzXs]="24"><nz-divider nzOrientation="left" [nzText]="text.taxSection" /></div>
+    <div nz-col [nzXs]="24" [nzMd]="8">
+      <nz-form-item>
+        <nz-form-label>{{ text.fiscalYearEnd }}</nz-form-label>
+        <nz-form-control>
+          <nz-select formControlName="fiscalYearEndMonth">
+            @for (o of fiscalMonthOptions; track o.value) {
+              <nz-option [nzValue]="o.value" [nzLabel]="o.label" />
+            }
+          </nz-select>
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+    <div nz-col [nzXs]="24" [nzMd]="8">
+      <nz-form-item>
+        <nz-form-label>{{ text.vatMethod }}</nz-form-label>
+        <nz-form-control>
+          <nz-select formControlName="vatMethod" nzAllowClear [nzPlaceHolder]="text.notSet">
+            @for (o of vatMethodOptions; track o.value) {
+              <nz-option [nzValue]="o.value" [nzLabel]="o.label" />
+            }
+          </nz-select>
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+    <div nz-col [nzXs]="24" [nzMd]="8">
+      <nz-form-item>
+        <nz-form-label>{{ text.pitPeriod }}</nz-form-label>
+        <nz-form-control>
+          <nz-select formControlName="pitPeriod" nzAllowClear [nzPlaceHolder]="text.notSet">
+            @for (o of pitPeriodOptions; track o.value) {
+              <nz-option [nzValue]="o.value" [nzLabel]="o.label" />
+            }
+          </nz-select>
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+    <div nz-col [nzXs]="24" [nzMd]="8">
+      <nz-form-item>
+        <nz-form-label>{{ text.accountingRegime }}</nz-form-label>
+        <nz-form-control>
+          <nz-select formControlName="accountingRegime" nzAllowClear [nzPlaceHolder]="text.notSet">
+            @for (o of regimeOptions; track o.value) {
+              <nz-option [nzValue]="o.value" [nzLabel]="o.label" />
+            }
+          </nz-select>
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+    <div nz-col [nzXs]="24" [nzMd]="16">
+      <nz-form-item>
+        <nz-form-label>{{ text.taxAuthority }}</nz-form-label>
+        <nz-form-control>
+          <input nz-input formControlName="taxAuthority" />
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+    <div nz-col [nzXs]="24"><nz-divider /></div>
+    <div nz-col [nzXs]="24" [nzMd]="8">
+      <nz-form-item>
+        <nz-form-label>{{ text.contact }}</nz-form-label>
+        <nz-form-control>
+          <input nz-input formControlName="contactName" />
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+    <div nz-col [nzXs]="24" [nzMd]="8">
+      <nz-form-item>
+        <nz-form-label>{{ text.phone }}</nz-form-label>
+        <nz-form-control>
+          <input nz-input formControlName="contactPhone" />
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+    <div nz-col [nzXs]="24" [nzMd]="8">
+      <nz-form-item>
+        <nz-form-label>{{ text.email }}</nz-form-label>
+        <nz-form-control [nzErrorTip]="text.emailError">
+          <input nz-input formControlName="contactEmail" />
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+    <div nz-col [nzXs]="24">
+      <nz-form-item>
+        <nz-form-label>{{ text.note }}</nz-form-label>
+        <nz-form-control>
+          <textarea nz-input rows="2" formControlName="note"></textarea>
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+  </div>
+  <div class="text-right">
+    <button nz-button type="button" (click)="cancelled.emit()">{{ text.cancel }}</button>
+    &nbsp;
+    <button nz-button nzType="primary" type="submit" [nzLoading]="saving()">{{ text.save }}</button>
+  </div>
+</form>

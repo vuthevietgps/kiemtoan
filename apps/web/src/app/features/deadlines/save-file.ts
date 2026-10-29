@@ -1,0 +1,9 @@
+/** Lưu blob tải về thành file trên máy người dùng. */
+export function saveFile(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

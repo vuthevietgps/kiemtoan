@@ -1,0 +1,147 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "apps/api",
+        "run",
+        "start:dev"
+      ],
+      "port": 3000,
+      "url": "http://localhost:3000"
+    },
+    {
+      "name": "api-demo",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "apps/api",
+        "run",
+        "start:dev"
+      ],
+      "env": {
+        "DATABASE_URL": "postgresql://ketoan:ketoan_dev@localhost:5433/ketoan_demo_03",
+        "COMPANY_NAME": "Công ty TNHH Kế toán Demo",
+        "COMPANY_TAX_CODE": "0100000000",
+        "COMPANY_ADDRESS": "Hà Nội",
+        "COMPANY_REPRESENTATIVE": "Giám đốc Demo",
+        "COMPANY_REPRESENTATIVE_TITLE": "Giám đốc",
+        "COMPANY_BANK_ACCOUNT": "0000000000",
+        "COMPANY_BANK_NAME": "Ngân hàng Demo"
+      },
+      "port": 3000,
+      "url": "http://localhost:3000"
+    },
+    {
+      "name": "api-demo-04",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "apps/api",
+        "run",
+        "start:dev"
+      ],
+      "env": {
+        "DATABASE_URL": "postgresql://ketoan:ketoan_dev@localhost:5433/ketoan_demo_04",
+        "COMPANY_NAME": "Công ty TNHH Kế toán Demo",
+        "COMPANY_TAX_CODE": "0100000000",
+        "COMPANY_ADDRESS": "Hà Nội",
+        "COMPANY_REPRESENTATIVE": "Giám đốc Demo",
+        "COMPANY_REPRESENTATIVE_TITLE": "Giám đốc",
+        "COMPANY_BANK_ACCOUNT": "0000000000",
+        "COMPANY_BANK_NAME": "Ngân hàng Demo"
+      },
+      "port": 3000,
+      "url": "http://localhost:3000"
+    },
+    {
+      "name": "api-demo-05b",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "apps/api",
+        "run",
+        "start:dev"
+      ],
+      "env": {
+        "DATABASE_URL": "postgresql://ketoan:ketoan_dev@localhost:5433/ketoan_mig_05b",
+        "COMPANY_NAME": "Công ty TNHH Kế toán Demo",
+        "COMPANY_TAX_CODE": "0100000000",
+        "COMPANY_ADDRESS": "Hà Nội",
+        "COMPANY_REPRESENTATIVE": "Giám đốc Demo",
+        "COMPANY_REPRESENTATIVE_TITLE": "Giám đốc",
+        "COMPANY_BANK_ACCOUNT": "0000000000",
+        "COMPANY_BANK_NAME": "Ngân hàng Demo"
+      },
+      "port": 3000,
+      "url": "http://localhost:3000"
+    },
+    {
+      "name": "api-ui-06d2",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "apps/api",
+        "run",
+        "start:dev"
+      ],
+      "env": {
+        "DATABASE_URL": "postgresql://ketoan:ketoan_dev@localhost:5433/ketoan_ui_06d2",
+        "REMINDERS_ENABLED": "false"
+      },
+      "port": 3000,
+      "url": "http://localhost:3000"
+    },
+    {
+      "name": "api-ui-07c",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "apps/api",
+        "run",
+        "start:dev"
+      ],
+      "env": {
+        "DATABASE_URL": "postgresql://ketoan:ketoan_dev@localhost:5433/ketoan_mig_07c",
+        "REMINDERS_ENABLED": "false"
+      },
+      "port": 3000,
+      "url": "http://localhost:3000"
+    },
+    {
+      "name": "api-ui-06d2-smtp",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "apps/api",
+        "run",
+        "start:dev"
+      ],
+      "env": {
+        "DATABASE_URL": "postgresql://ketoan:ketoan_dev@localhost:5433/ketoan_ui_06d2",
+        "REMINDERS_ENABLED": "true",
+        "SMTP_HOST": "127.0.0.1",
+        "SMTP_PORT": "2525",
+        "SMTP_SECURE": "false",
+        "SMTP_USER": "",
+        "SMTP_FROM": "Kế toán Demo <no-reply@demo.local>"
+      },
+      "port": 3000,
+      "url": "http://localhost:3000"
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "apps/web",
+        "run",
+        "start"
+      ],
+      "port": 4200
+    }
+  ]
+}

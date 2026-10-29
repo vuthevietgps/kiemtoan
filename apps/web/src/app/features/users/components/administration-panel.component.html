@@ -1,0 +1,34 @@
+<section class="panel"><h3>{{ text.teams }}</h3>
+  @if (canManage()) {
+    <div class="editor"><input nz-input [placeholder]="text.teamName" [(ngModel)]="teamName" /><button nz-button nzType="primary" [disabled]="busy() || teamName.trim().length < 2" (click)="saveTeam()">{{ teamId ? text.save : text.addTeam }}</button></div>
+  }
+  <nz-table #groups [nzData]="teams()" [nzShowPagination]="false" [nzScroll]="{ x: '420px' }"><thead><tr><th>{{ text.teamName }}</th><th></th></tr></thead><tbody>
+    @for (team of groups.data; track team.id) { <tr><td>{{ team.name }}</td><td>@if (canManage()) { <button nz-button [disabled]="busy()" (click)="editTeam(team)">{{ text.edit }}</button><button nz-button nzDanger nz-popconfirm [nzPopconfirmTitle]="text.confirm" [disabled]="busy()" (nzOnConfirm)="action.emit({ type: 'team-delete', id: team.id })">{{ text.delete }}</button> }</td></tr> }
+  </tbody></nz-table>
+</section>
+<section class="panel"><h3>{{ text.profile }}</h3><p class="text-muted">{{ text.roleHint }}</p>
+  @if (canManageRoles()) { <button nz-button nzType="primary" [disabled]="busy()" (click)="editRole(null)">{{ text.addRole }}</button> }
+  <nz-table #profiles [nzData]="roles()" [nzShowPagination]="false" [nzScroll]="{ x: '600px' }"><thead><tr><th>{{ text.roleName }}</th><th>{{ text.role }}</th><th>{{ text.scope }}</th><th>{{ text.permissions }}</th><th></th></tr></thead><tbody>
+    @for (role of profiles.data; track role.id) { <tr><td>{{ role.name }}</td><td>{{ labels[role.baseRole] }}</td><td>{{ scopes[role.scope] }}</td><td><details><summary>{{ role.permissions.length }}</summary>@for (permission of role.permissions; track permission) { <div>{{ permissionLabel(permission) }}</div> }</details></td><td>@if (canManageRoles()) { <button nz-button [disabled]="busy()" (click)="editRole(role)">{{ text.edit }}</button><button nz-button nzDanger nz-popconfirm [nzPopconfirmTitle]="text.confirm" [disabled]="busy()" (nzOnConfirm)="action.emit({ type: 'role-delete', id: role.id })">{{ text.delete }}</button> }</td></tr> }
+  </tbody></nz-table>
+</section>
+@if (showRequests()) {
+<section class="panel"><h3>{{ text.requests }}</h3>
+  <p class="text-muted">{{ text.accessResetHint }}</p>
+  <nz-select nzAllowClear [nzPlaceHolder]="text.allStatuses" [ngModel]="requestStatus()" (ngModelChange)="action.emit({ type: 'request-status', status: $event })"><nz-option nzValue="PENDING" [nzLabel]="text.pending" /><nz-option nzValue="APPROVED" [nzLabel]="text.approve" /><nz-option nzValue="REJECTED" [nzLabel]="text.reject" /></nz-select>
+  <nz-table #pending [nzData]="requests()" [nzPageSize]="20" [nzFrontPagination]="false" [nzTotal]="requestTotal()" [nzPageIndex]="requestPage()" (nzPageIndexChange)="action.emit({ type: 'request-page', page: $event })" [nzScroll]="{ x: '850px' }"><thead><tr><th>{{ text.target }}</th><th>{{ text.requestedBy }}</th><th>{{ text.proposal }}</th><th>{{ text.status }}</th><th>{{ text.reason }}</th><th>{{ text.requestedAt }}</th><th></th></tr></thead><tbody>
+    @for (request of pending.data; track request.id) { <tr><td>{{ request.user.fullName }}<div class="text-muted">{{ request.user.email }}</div></td><td>{{ request.requestedBy.fullName }}</td><td>{{ labels[request.user.role] }} → {{ labels[request.proposal.role] }}<details><summary>{{ text.permissions }}</summary><div>{{ text.profile }}: {{ profileName(request.proposal.accessRoleId) }}</div><div>{{ text.financial }}: {{ accessLabel(request.proposal.financialAccess) }}</div><div>{{ text.secret }}: {{ accessLabel(request.proposal.secretAccess) }}</div></details></td><td>{{ request.status === 'PENDING' ? text.pending : request.status === 'APPROVED' ? text.approve : text.reject }}</td><td>{{ request.reason ?? '—' }}</td><td>{{ request.createdAt | date:'dd/MM/yyyy HH:mm' }}</td><td>@if (canReview() && request.status === 'PENDING') { <button nz-button [disabled]="busy()" (click)="review(request, true)">{{ text.approve }}</button><button nz-button nzDanger [disabled]="busy()" (click)="review(request, false)">{{ text.reject }}</button> }</td></tr> }
+  </tbody></nz-table>
+</section>
+}
+<nz-modal [nzVisible]="roleOpen()" [nzTitle]="text.profile" [nzFooter]="null" [nzWidth]="760" (nzOnCancel)="roleOpen.set(false)"><ng-container *nzModalContent>
+  <label>{{ text.roleName }}<input nz-input [(ngModel)]="roleName" /></label>
+  <label>{{ text.role }}<nz-select [ngModel]="baseRole()" (ngModelChange)="changeBase($event)">@for (role of roleOptions; track role) { <nz-option [nzValue]="role" [nzLabel]="labels[role]" /> }</nz-select></label>
+  <label>{{ text.scope }}<nz-select [(ngModel)]="scope">@for (value of scopeOptions(); track value) { <nz-option [nzValue]="value" [nzLabel]="scopes[value]" /> }</nz-select></label>
+  <div class="permission-grid">@for (permission of permissionOptions(); track permission) { <label nz-checkbox [ngModel]="permissions().includes(permission)" (ngModelChange)="check(permission, $event)">{{ permissionLabel(permission) }}</label> }</div>
+  <button nz-button nzType="primary" [disabled]="busy() || roleName.trim().length < 2" (click)="saveRole()">{{ text.save }}</button>
+</ng-container></nz-modal>
+<nz-modal [nzVisible]="!!reviewing()" [nzTitle]="text.review" [nzFooter]="null" (nzOnCancel)="reviewing.set(null)"><ng-container *nzModalContent>
+  <p>{{ reviewing()?.user?.fullName }} — {{ decision ? text.approve : text.reject }}</p><label>{{ text.reason }}<textarea nz-input [(ngModel)]="reason" maxlength="500"></textarea></label>
+  <button nz-button nzType="primary" [disabled]="busy() || reason.trim().length < 3" (click)="submitReview()">{{ text.save }}</button>
+</ng-container></nz-modal>

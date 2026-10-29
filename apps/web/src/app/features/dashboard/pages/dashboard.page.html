@@ -1,0 +1,113 @@
+<div class="top">
+  <div>
+    <h2>Xin chào, {{ firstName() }}!</h2>
+    <p class="text-muted">Tổng quan hoạt động trong khoảng thời gian đã chọn</p>
+  </div>
+  <nz-range-picker
+    [ngModel]="range()"
+    (ngModelChange)="onRangeChange($event)"
+    nzFormat="dd/MM/yyyy"
+    [nzAllowClear]="false"
+  />
+</div>
+
+<nz-spin [nzSpinning]="loading()">
+  @if (data(); as d) {
+    <section class="kpis">
+      @if (auth.can('finance:view')) {
+        <app-kpi-card
+          label="Doanh thu (chưa VAT)"
+          icon="rise"
+          color="#1f5fbf"
+          [value]="compact(d.kpis.revenue.value)"
+          [change]="d.kpis.revenue.changePercent"
+        />
+        <app-kpi-card
+          label="Tổng giá trị thanh toán"
+          icon="wallet"
+          color="#7b61ff"
+          [value]="compact(d.kpis.totalPayable.value)"
+          [change]="d.kpis.totalPayable.changePercent"
+        />
+      }
+      <app-kpi-card
+        label="Tổng số hợp đồng"
+        icon="file-text"
+        color="#14a3b8"
+        [value]="'' + d.kpis.contracts.total"
+        [hint]="'+' + d.kpis.contracts.new + ' hợp đồng mới trong kỳ'"
+      />
+      <app-kpi-card
+        label="Dịch vụ đã hoàn thành"
+        icon="check-circle"
+        color="#2bb673"
+        [value]="d.kpis.servicesDone + '/' + d.kpis.servicesTotal"
+        [progress]="servicePercent()"
+      />
+      <app-kpi-card
+        label="Dịch vụ chưa hoàn thành"
+        icon="clock-circle"
+        color="#f5a623"
+        [value]="'' + (d.kpis.servicesTotal - d.kpis.servicesDone)"
+        hint="Dòng dịch vụ đang chờ hoặc đang làm"
+      />
+    </section>
+
+    <section class="charts">
+      @if (auth.can('finance:view')) {
+        <div class="panel wide">
+          <h3>Doanh thu theo loại dịch vụ</h3>
+          @if (d.revenueByServiceType.length) {
+            <div echarts class="chart" [options]="revenueChart()"></div>
+          } @else {
+            <p class="empty">Chưa có doanh thu trong kỳ</p>
+          }
+        </div>
+      }
+      <div class="panel">
+        <h3>Tình trạng dịch vụ</h3>
+        <div echarts class="chart" [options]="serviceChart()"></div>
+      </div>
+      <div class="panel" *appCan="'finance:view'">
+        <h3>Tình hình thanh toán</h3>
+        <div echarts class="chart" [options]="paymentChart()"></div>
+      </div>
+    </section>
+
+    <section class="bottom">
+      <div class="panel wide" *appCan="'contracts:view'">
+        <h3>Hợp đồng gần đây</h3>
+        <app-recent-contracts
+          [contracts]="d.recentContracts"
+          [showPaid]="auth.can('finance:view')"
+        />
+      </div>
+
+      <div class="panel" *appCan="'tasks:view'">
+        <h3>Công việc &amp; Deadline</h3>
+        <nz-tabs nzSize="small">
+          <nz-tab [nzTitle]="'Chưa làm (' + d.myTasks.TODO + ')'">
+            <app-task-list [tasks]="d.myTaskItems.TODO" emptyText="Không có việc chưa làm" />
+          </nz-tab>
+          <nz-tab [nzTitle]="'Đang làm (' + d.myTasks.IN_PROGRESS + ')'">
+            <app-task-list [tasks]="d.myTaskItems.IN_PROGRESS" emptyText="Không có việc đang làm" />
+          </nz-tab>
+          <nz-tab [nzTitle]="'Hoàn thành (' + d.myTasks.DONE + ')'">
+            <app-task-list [tasks]="d.myTaskItems.DONE" emptyText="Chưa có việc hoàn thành" />
+          </nz-tab>
+        </nz-tabs>
+        <h4>Sắp đến hạn trong 14 ngày</h4>
+        <app-task-list [tasks]="d.upcoming" emptyText="Không có việc sắp đến hạn" />
+      </div>
+    </section>
+
+    <section class="panel reminders" *appCan="'tasks:view'">
+      <h3>Nhắc việc đến hạn</h3>
+      <app-task-list
+        [tasks]="d.reportDeadlines"
+        [showAssignee]="true"
+        emptyText="Không có việc cần nhắc"
+      />
+    </section>
+  }
+</nz-spin>

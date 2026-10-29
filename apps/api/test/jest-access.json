@@ -1,0 +1,26 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "..",
+  "testEnvironment": "node",
+  "testRegex": "(test/(users-access|auth-lifecycle|permissions-financial)\\.e2e-spec|src/core/(auth/(auth-mailer.service|password-policy)|access-control/permissions)\\.spec)\\.ts$",
+  "setupFiles": ["<rootDir>/test/utils/setup-env.ts"],
+  "testTimeout": 30000,
+  "transform": { "^.+\\.(t|j)s$": "ts-jest" },
+  "collectCoverage": true,
+  "collectCoverageFrom": [
+    "src/core/auth/*.service.ts",
+    "src/core/access-control/*.ts",
+    "!src/core/access-control/*.spec.ts",
+    "src/modules/users/*service.ts"
+  ],
+  "coverageDirectory": "coverage/access-control",
+  "coverageThreshold": {
+    "global": { "lines": 70, "statements": 70, "functions": 70 },
+    "./src/core/auth/auth.service.ts": { "lines": 70 },
+    "./src/core/auth/auth-sessions.service.ts": { "lines": 70 },
+    "./src/core/auth/account-tokens.service.ts": { "lines": 70 },
+    "./src/core/auth/auth-mailer.service.ts": { "lines": 70 },
+    "./src/modules/users/users.service.ts": { "lines": 70 },
+    "./src/modules/users/user-access.service.ts": { "lines": 70 }
+  }
+}

@@ -1,0 +1,148 @@
+<div class="panel">
+  <p class="muted">{{ text.peopleHint }}</p>
+  <div class="filters">
+    <nz-date-picker
+      nzFormat="dd/MM/yyyy"
+      [nzPlaceHolder]="text.peopleFrom"
+      [(ngModel)]="from"
+      (ngModelChange)="load()"
+    />
+    <nz-date-picker
+      nzFormat="dd/MM/yyyy"
+      [nzPlaceHolder]="text.peopleTo"
+      [(ngModel)]="to"
+      (ngModelChange)="load()"
+    />
+    <nz-select [nzPlaceHolder]="text.role" nzAllowClear [(ngModel)]="role" (ngModelChange)="load()">
+      @for (r of roles; track r) {
+        <nz-option [nzValue]="r" [nzLabel]="roleLabels[r]" />
+      }
+    </nz-select>
+    <nz-select [nzPlaceHolder]="text.kind" nzAllowClear [(ngModel)]="kind" (ngModelChange)="load()">
+      @for (k of kinds; track k) {
+        <nz-option [nzValue]="k" [nzLabel]="kindLabels[k]" />
+      }
+    </nz-select>
+    <nz-select
+      [nzPlaceHolder]="text.service"
+      nzAllowClear
+      [(ngModel)]="serviceTypeId"
+      (ngModelChange)="load()"
+    >
+      @for (s of services(); track s.id) {
+        <nz-option [nzValue]="s.id" [nzLabel]="s.name" />
+      }
+    </nz-select>
+  </div>
+
+  <nz-table
+    #table
+    [nzData]="items()"
+    [nzLoading]="loading()"
+    [nzShowPagination]="false"
+    [nzScroll]="{ x: '1100px' }"
+    nzSize="small"
+  >
+    <thead>
+      <tr>
+        <th nzLeft nzWidth="180px">{{ text.person }}</th>
+        <th class="text-right">{{ text.activeEngagements }}</th>
+        <th class="text-right">{{ text.dueCount }}</th>
+        <th class="text-right">{{ text.onTime }}</th>
+        <th class="text-right">{{ text.late }}</th>
+        <th class="text-right">{{ text.overdueCount }}</th>
+        <th class="text-right">{{ text.rate }}</th>
+        <th class="text-right">{{ text.rateOriginal }}</th>
+        <th class="text-right">{{ text.extensions }}</th>
+        <th class="text-right">{{ text.avgLate }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (r of table.data; track r.user.id) {
+        <tr class="clickable" (click)="open(r)">
+          <td nzLeft>
+            <a>{{ r.user.fullName }}</a>
+          </td>
+          <td class="text-right">{{ r.activeEngagements }}</td>
+          <td class="text-right">{{ r.total }}</td>
+          <td class="text-right">{{ r.onTime }}</td>
+          <td class="text-right">{{ r.late }}</td>
+          <td class="text-right">{{ r.overdue }}</td>
+          <td class="text-right">
+            <nz-tag [nzColor]="rateColor(r.rate)">{{
+              r.rate === null ? text.noData : r.rate + '%'
+            }}</nz-tag>
+          </td>
+          <td class="text-right">
+            {{ r.rateOriginal === null ? text.noData : r.rateOriginal + '%' }}
+          </td>
+          <td class="text-right">{{ r.extensions }}</td>
+          <td class="text-right">{{ r.avgLateDays ?? text.noData }}</td>
+        </tr>
+      }
+    </tbody>
+  </nz-table>
+</div>
+
+<nz-modal
+  [nzVisible]="!!detail()"
+  [nzTitle]="detail() ? text.personTitle(detail()!.user.fullName) : ''"
+  [nzFooter]="null"
+  nzWidth="960px"
+  (nzOnCancel)="detail.set(null)"
+>
+  <ng-container *nzModalContent>
+    @if (detail(); as d) {
+      <nz-table
+        [nzData]="d.items"
+        [nzShowPagination]="false"
+        [nzScroll]="{ x: '900px' }"
+        nzSize="small"
+      >
+        <thead>
+          <tr>
+            <th>{{ text.contract }}</th>
+            <th>{{ text.customer }}</th>
+            <th>{{ text.kind }}</th>
+            <th>{{ text.role }}</th>
+            <th>{{ text.originalDue }}</th>
+            <th>{{ text.currentDue }}</th>
+            <th>{{ text.result }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (i of d.items; track i.deadlineId) {
+            <tr>
+              <td>
+                <a [routerLink]="['/contracts', i.contract.id]" (click)="detail.set(null)">{{
+                  i.contract.code
+                }}</a>
+              </td>
+              <td>{{ i.customer.name }}</td>
+              <td>{{ kindLabels[i.kind] }}</td>
+              <td>{{ roleNames(i.roles) }}</td>
+              <td>{{ i.originalDue | date: 'dd/MM/yyyy' }}</td>
+              <td>
+                {{ i.currentDue | date: 'dd/MM/yyyy' }}
+                @for (reason of i.extensionReasons; track $index) {
+                  <div class="muted">{{ reason }}</div>
+                }
+              </td>
+              <td>
+                <nz-tag [nzColor]="resultLabels[i.current.result].color">{{
+                  resultLabels[i.current.result].label
+                }}</nz-tag>
+                <span class="muted">{{ text.dayNote(i.current.result, i.current.days) }}</span>
+                @if (i.original.result !== i.current.result) {
+                  <div class="muted">
+                    {{ text.originalDue }}: {{ resultLabels[i.original.result].label }}
+                  </div>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </nz-table>
+    }
+  </ng-container>
+</nz-modal>

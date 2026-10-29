@@ -1,0 +1,136 @@
+<div class="grid">
+  <label>
+    {{ text.name }}
+    <input nz-input maxlength="200" [ngModel]="title()" (ngModelChange)="title.set($event)" />
+  </label>
+  <label>
+    {{ text.effectiveDate }}
+    <nz-date-picker
+      nzFormat="dd/MM/yyyy"
+      [ngModel]="effectiveDate()"
+      (ngModelChange)="effectiveDate.set($event)"
+    />
+  </label>
+</div>
+<label>
+  {{ text.content }}
+  <textarea
+    nz-input
+    rows="2"
+    maxlength="5000"
+    [ngModel]="content()"
+    (ngModelChange)="content.set($event)"
+  ></textarea>
+</label>
+
+<nz-table
+  [nzData]="rows()"
+  [nzShowPagination]="false"
+  [nzFrontPagination]="false"
+  nzSize="small"
+  [nzScroll]="{ x: '720px' }"
+  style="margin-top: 12px"
+>
+  <thead>
+    <tr>
+      <th>{{ text.service }}</th>
+      <th nzWidth="150px">{{ text.action }}</th>
+      <th nzWidth="100px">{{ text.quantity }}</th>
+      <th nzWidth="170px">{{ text.unitPrice }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    @for (row of rows(); track row.lineId; let i = $index) {
+      <tr>
+        <td>
+          {{ lineName().get(row.lineId)?.serviceType?.name }}
+          <span class="text-muted">{{ lineName().get(row.lineId)?.period ?? '' }}</span>
+          @if (lineName().get(row.lineId)?.taskGenerationStatus === 'DONE') {
+            <div class="text-muted">{{ text.hasTasks }}</div>
+          }
+        </td>
+        <td>
+          <nz-select [ngModel]="row.mode" (ngModelChange)="patchRow(i, { mode: $event })">
+            @for (m of modes; track m.value) {
+              <nz-option [nzValue]="m.value" [nzLabel]="m.label" />
+            }
+          </nz-select>
+        </td>
+        <td>
+          <nz-input-number
+            [nzMin]="1"
+            [nzDisabled]="row.mode !== 'UPDATE'"
+            [ngModel]="row.quantity"
+            (ngModelChange)="patchRow(i, { quantity: $event })"
+          />
+        </td>
+        <td>
+          <nz-input-number
+            [nzMin]="0"
+            [nzFormatter]="moneyFormatter"
+            [nzParser]="moneyParser"
+            [nzDisabled]="row.mode !== 'UPDATE'"
+            [ngModel]="row.unitPrice"
+            (ngModelChange)="patchRow(i, { unitPrice: $event })"
+          />
+        </td>
+      </tr>
+    }
+    @for (row of added(); track $index; let i = $index) {
+      <tr>
+        <td>
+          <nz-select
+            nzShowSearch
+            [nzPlaceHolder]="text.service"
+            [ngModel]="row.serviceTypeId"
+            (ngModelChange)="chooseType(i, $event)"
+          >
+            @for (t of serviceTypes(); track t.id) {
+              <nz-option [nzValue]="t.id" [nzLabel]="t.name" />
+            }
+          </nz-select>
+          <input
+            nz-input
+            [placeholder]="text.period"
+            maxlength="20"
+            [ngModel]="row.period"
+            (ngModelChange)="patchAdded(i, { period: $event })"
+            style="margin-top: 4px"
+          />
+        </td>
+        <td>
+          <button nz-button nzDanger nzSize="small" (click)="removeAdded(i)">
+            {{ text.removeLine }}
+          </button>
+        </td>
+        <td>
+          <nz-input-number
+            [nzMin]="1"
+            [ngModel]="row.quantity"
+            (ngModelChange)="patchAdded(i, { quantity: $event })"
+          />
+        </td>
+        <td>
+          <nz-input-number
+            [nzMin]="0"
+            [nzFormatter]="moneyFormatter"
+            [nzParser]="moneyParser"
+            [ngModel]="row.unitPrice"
+            (ngModelChange)="patchAdded(i, { unitPrice: $event })"
+          />
+        </td>
+      </tr>
+    }
+  </tbody>
+</nz-table>
+<button nz-button style="margin-top: 8px" (click)="addRow()">{{ text.addLine }}</button>
+<p class="text-muted">{{ text.scheduleHint }}</p>
+@if (error(); as message) {
+  <p class="error">{{ message }}</p>
+}
+<div class="actions">
+  <button nz-button (click)="cancelled.emit()">{{ text.close }}</button>
+  <button nz-button nzType="primary" [nzLoading]="busy()" (click)="submit()">
+    {{ text.save }}
+  </button>
+</div>

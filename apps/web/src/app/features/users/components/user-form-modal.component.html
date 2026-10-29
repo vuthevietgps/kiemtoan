@@ -1,0 +1,29 @@
+<nz-modal [nzVisible]="open()" [nzTitle]="user() ? text.editUser : text.addUser" [nzFooter]="null" [nzWidth]="720" (nzOnCancel)="closed.emit()">
+  <ng-container *nzModalContent>
+    <form nz-form nzLayout="vertical" [formGroup]="form" (ngSubmit)="submit()">
+      <div class="grid">
+        <nz-form-item><nz-form-label nzRequired>{{ text.fullName }}</nz-form-label><nz-form-control><input nz-input formControlName="fullName" /></nz-form-control></nz-form-item>
+        <nz-form-item><nz-form-label nzRequired>{{ text.email }}</nz-form-label><nz-form-control><input nz-input type="email" formControlName="email" /></nz-form-control></nz-form-item>
+        <nz-form-item><nz-form-label>{{ text.phone }}</nz-form-label><nz-form-control><input nz-input formControlName="phone" /></nz-form-control></nz-form-item>
+        <nz-form-item><nz-form-label>{{ text.titleField }}</nz-form-label><nz-form-control><input nz-input formControlName="title" /></nz-form-control></nz-form-item>
+        <nz-form-item><nz-form-label>{{ text.role }}</nz-form-label><nz-form-control><nz-select formControlName="role" (ngModelChange)="form.controls.accessRoleId.setValue(null)">
+          @for (role of roles; track role.value) { <nz-option [nzValue]="role.value" [nzLabel]="role.label" /> }
+        </nz-select></nz-form-control></nz-form-item>
+        <nz-form-item><nz-form-label>{{ text.team }}</nz-form-label><nz-form-control><nz-select formControlName="teamId" nzAllowClear>
+          @for (team of teams(); track team.id) { <nz-option [nzValue]="team.id" [nzLabel]="team.name" /> }
+        </nz-select></nz-form-control></nz-form-item>
+        <nz-form-item><nz-form-label>{{ text.profile }}</nz-form-label><nz-form-control><nz-select formControlName="accessRoleId" nzAllowClear [nzPlaceHolder]="text.defaultRole">
+          @for (profile of profiles(); track profile.id) { @if (profile.baseRole === form.controls.role.value) { <nz-option [nzValue]="profile.id" [nzLabel]="profile.name" /> } }
+        </nz-select></nz-form-control></nz-form-item>
+        <nz-form-item><nz-form-label>{{ text.financial }}</nz-form-label><nz-form-control><nz-select formControlName="financialAccess" nzAllowClear [nzPlaceHolder]="text.inherited"><nz-option [nzValue]="true" [nzLabel]="text.granted" /><nz-option [nzValue]="false" [nzLabel]="text.denied" /></nz-select></nz-form-control></nz-form-item>
+        <nz-form-item><nz-form-label>{{ text.secret }}</nz-form-label><nz-form-control><nz-select formControlName="secretAccess" nzAllowClear [nzPlaceHolder]="text.inherited"><nz-option [nzValue]="true" [nzLabel]="text.granted" /><nz-option [nzValue]="false" [nzLabel]="text.denied" /></nz-select></nz-form-control></nz-form-item>
+      </div>
+      @if (!user()) {
+        <nz-form-item><nz-form-label>{{ text.password }}</nz-form-label><nz-form-control [nzErrorTip]="text.passwordPolicy"><input nz-input type="password" autocomplete="new-password" formControlName="password" /></nz-form-control></nz-form-item>
+        <p class="text-muted">{{ text.passwordHint }}</p>
+      }
+      <p class="text-muted">{{ text.pendingHint }}</p>
+      <div class="actions"><button nz-button type="button" [disabled]="busy()" (click)="closed.emit()">{{ text.cancel }}</button><button nz-button nzType="primary" type="submit" [nzLoading]="busy()">{{ text.save }}</button></div>
+    </form>
+  </ng-container>
+</nz-modal>

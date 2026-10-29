@@ -1,0 +1,53 @@
+.block {
+  display: block;
+  margin-bottom: 12px;
+}
+
+section {
+  margin-bottom: 24px;
+}
+
+h4 {
+  margin: 0 0 8px;
+}
+
+.muted {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.row,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  nz-time-picker {
+    width: 140px;
+  }
+}
+
+.add {
+  margin-top: 12px;
+
+  .service {
+    flex: 1 1 220px;
+    min-width: 0;
+  }
+
+  nz-input-number {
+    width: 80px;
+  }
+}
+
+.error {
+  margin: 0 0 8px;
+  color: #cf1322;
+}

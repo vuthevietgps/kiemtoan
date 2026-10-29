@@ -1,0 +1,232 @@
+<app-page-header [title]="text.title" [subtitle]="text.subtitle">
+  <a nz-button routerLink="/contracts">{{ text.back }}</a>
+</app-page-header>
+
+<nz-alert nzType="info" nzShowIcon [nzMessage]="text.draftNote" style="margin-bottom: 12px" />
+@if (store.error(); as error) {
+  <nz-alert nzType="error" nzShowIcon [nzMessage]="error" style="margin-bottom: 12px" />
+}
+
+<div class="panel">
+  <h3>{{ text.upload }}</h3>
+  <div class="bar">
+    <nz-select
+      [ngModel]="newType()"
+      (ngModelChange)="newType.set($event)"
+      [nzDisabled]="store.busy()"
+    >
+      @for (type of types; track type) {
+        <nz-option [nzValue]="type" [nzLabel]="typeLabels[type]" />
+      }
+    </nz-select>
+    <input
+      nz-input
+      [placeholder]="text.name"
+      maxlength="200"
+      [ngModel]="newName()"
+      (ngModelChange)="newName.set($event)"
+    />
+    <input
+      nz-input
+      [placeholder]="text.description"
+      maxlength="1000"
+      [ngModel]="newDescription()"
+      (ngModelChange)="newDescription.set($event)"
+    />
+    <label>
+      {{ text.file }}
+      <input
+        type="file"
+        accept=".docx"
+        [disabled]="store.busy() || newName().trim().length < 2"
+        (change)="create($event)"
+      />
+    </label>
+  </div>
+  @if (invalid(); as message) {
+    <nz-alert nzType="warning" [nzMessage]="message" />
+  }
+  <div class="bar" style="margin-top: 12px">
+    <nz-select [ngModel]="sampleType()" (ngModelChange)="sampleType.set($event)">
+      @for (type of types; track type) {
+        <nz-option [nzValue]="type" [nzLabel]="typeLabels[type]" />
+      }
+    </nz-select>
+    <button nz-button (click)="downloadSample()">{{ text.sample }}</button>
+    <span class="text-muted">{{ text.sampleHint }}</span>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="bar">
+    <nz-select
+      nzAllowClear
+      [nzPlaceHolder]="text.all"
+      [ngModel]="store.type()"
+      (ngModelChange)="store.filter($event)"
+    >
+      @for (type of types; track type) {
+        <nz-option [nzValue]="type" [nzLabel]="typeLabels[type]" />
+      }
+    </nz-select>
+  </div>
+  <input #replaceInput type="file" accept=".docx" hidden (change)="replace($event)" />
+  <nz-table
+    #table
+    [nzData]="store.items()"
+    [nzLoading]="store.loading()"
+    [nzShowPagination]="false"
+    [nzFrontPagination]="false"
+    nzSize="small"
+    [nzScroll]="{ x: '900px' }"
+    [nzNoResult]="text.empty"
+  >
+    <thead>
+      <tr>
+        <th>{{ text.type }}</th>
+        <th>{{ text.name }}</th>
+        <th>{{ text.status }}</th>
+        <th>{{ text.version }}</th>
+        <th>{{ text.fields }}</th>
+        <th>{{ text.updated }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (t of table.data; track t.id) {
+        <tr>
+          <td>{{ typeLabels[t.type] }}</td>
+          <td>
+            {{ t.name }}
+            @if (t.description) {
+              <div class="text-muted">{{ t.description }}</div>
+            }
+          </td>
+          <td>
+            <nz-tag [nzColor]="t.isActive ? 'green' : 'default'">{{
+              t.isActive ? text.active : text.inactive
+            }}</nz-tag>
+          </td>
+          <td>v{{ t.version }}</td>
+          <td>{{ t.fields.length }}</td>
+          <td>{{ t.updatedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+          <td>
+            <button nz-button nzSize="small" (click)="download(t.id, t.version, t.fileName)">
+              {{ text.download }}
+            </button>
+            <button nz-button nzSize="small" (click)="store.openHistory(t)">
+              {{ text.history }}
+            </button>
+            <button
+              nz-button
+              nzSize="small"
+              [disabled]="store.busy()"
+              (click)="chooseReplacement(t)"
+            >
+              {{ text.newVersion }}
+            </button>
+            <button nz-button nzSize="small" [disabled]="store.busy()" (click)="toggle(t)">
+              {{ t.isActive ? text.deactivate : text.activate }}
+            </button>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </nz-table>
+</div>
+
+@if (store.catalog(); as catalog) {
+  <nz-collapse>
+    <nz-collapse-panel [nzHeader]="text.catalog">
+      <p class="text-muted">{{ text.catalogHint }}</p>
+      <nz-table
+        [nzData]="catalog.fields"
+        [nzShowPagination]="false"
+        [nzFrontPagination]="false"
+        nzSize="small"
+        [nzScroll]="{ x: '480px' }"
+      >
+        <tbody>
+          @for (f of catalog.fields; track f.key) {
+            <tr>
+              <td>
+                <code>{{ token(f.key) }}</code>
+              </td>
+              <td>{{ f.label }}</td>
+            </tr>
+          }
+          @for (list of catalog.lists; track list.key) {
+            <tr>
+              <td>
+                <code>{{ text.list }} {{ list.key }}</code>
+              </td>
+              <td>{{ list.label }}</td>
+            </tr>
+            @for (f of list.fields; track f.key) {
+              <tr>
+                <td>
+                  <code>{{ token('$item.' + f.key) }}</code>
+                </td>
+                <td>{{ list.label }} — {{ f.label }}</td>
+              </tr>
+            }
+          }
+        </tbody>
+      </nz-table>
+    </nz-collapse-panel>
+  </nz-collapse>
+}
+
+<nz-modal
+  [nzVisible]="!!store.historyOf()"
+  [nzTitle]="text.versionsTitle"
+  [nzFooter]="null"
+  [nzWidth]="800"
+  (nzOnCancel)="store.historyOf.set(null)"
+>
+  <ng-container *nzModalContent>
+    @if (store.historyOf(); as template) {
+      <nz-table
+        [nzData]="store.history()"
+        [nzShowPagination]="false"
+        [nzFrontPagination]="false"
+        nzSize="small"
+        [nzScroll]="{ x: '600px' }"
+      >
+        <thead>
+          <tr>
+            <th>{{ text.version }}</th>
+            <th>{{ text.name }}</th>
+            <th>{{ text.fields }}</th>
+            <th>{{ text.updated }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (v of store.history(); track v.id) {
+            <tr>
+              <td>v{{ v.version }}</td>
+              <td>
+                {{ v.fileName }}
+                @if (v.note) {
+                  <div class="text-muted">{{ v.note }}</div>
+                }
+              </td>
+              <td>{{ v.fields.length }}</td>
+              <td>{{ v.createdAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+              <td>
+                <button
+                  nz-button
+                  nzSize="small"
+                  (click)="download(template.id, v.version, v.fileName)"
+                >
+                  {{ text.download }}
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </nz-table>
+    }
+  </ng-container>
+</nz-modal>

@@ -1,0 +1,98 @@
+@if (store.error() && !store.selected()) {
+  <nz-alert class="block" nzType="error" nzShowIcon [nzMessage]="store.error()" />
+}
+
+@if (canCreate()) {
+  @if (creating()) {
+    <div class="create">
+      <h4>{{ text.addType }}</h4>
+      @if (store.error()) {
+        <nz-alert class="block" nzType="error" nzShowIcon [nzMessage]="store.error()" />
+      }
+      <app-obligation-rule-form mode="create" [busy]="store.busy()" (created)="create($event)" (cancelled)="creating.set(false)" />
+    </div>
+  } @else {
+    <button class="block" nz-button nzType="primary" type="button" (click)="creating.set(true)">
+      {{ text.addType }}
+    </button>
+  }
+}
+
+<nz-table
+  #table
+  nzSize="small"
+  [nzData]="store.types()"
+  [nzLoading]="store.loading()"
+  [nzShowPagination]="false"
+  [nzScroll]="{ x: '720px' }"
+>
+  <thead>
+    <tr>
+      <th nzWidth="150px">{{ text.code }}</th>
+      <th>{{ text.name }}</th>
+      <th nzWidth="80px">{{ text.cycle }}</th>
+      <th nzWidth="200px">{{ text.state }}</th>
+      <th nzWidth="200px">{{ text.services }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    @for (t of table.data; track t.id) {
+      <tr class="row" (click)="store.select(t.id)">
+        <td><strong>{{ t.code }}</strong></td>
+        <td>
+          {{ t.name }}
+          <div class="muted">{{ groups[t.group] }}</div>
+        </td>
+        <td>{{ cycles[t.cycle] }}</td>
+        <td>
+          @if (t.retiredAt) {
+            <nz-tag>{{ text.retired }}</nz-tag>
+          } @else if (confirmedNo(t.versions); as n) {
+            <nz-tag nzColor="green">{{ text.confirmedVersion(n) }}</nz-tag>
+          } @else {
+            <nz-tag nzColor="orange">{{ text.noConfirmed }}</nz-tag>
+          }
+          @if (hasDraft(t.versions)) {
+            <nz-tag nzColor="blue">{{ text.draft }}</nz-tag>
+          }
+        </td>
+        <td>
+          @for (s of t.services; track s.id) {
+            <nz-tag>{{ s.code }}</nz-tag>
+          } @empty {
+            <span class="muted">—</span>
+          }
+        </td>
+      </tr>
+    }
+  </tbody>
+</nz-table>
+
+<nz-drawer
+  [nzVisible]="!!store.selected()"
+  [nzWidth]="width()"
+  [nzTitle]="text.tabTypes"
+  (nzOnClose)="store.select(null)"
+>
+  <ng-container *nzDrawerContent>
+    @if (store.selected(); as t) {
+      @if (store.error()) {
+        <nz-alert class="block" nzType="error" nzShowIcon [nzMessage]="store.error()" />
+      }
+      <app-obligation-type-detail
+        [type]="t"
+        [serviceOptions]="services()"
+        [customerOptions]="customers()"
+        [preview]="store.preview()"
+        [busy]="store.busy()"
+        [canCreate]="canCreate()"
+        [canApprove]="canApprove()"
+        (saveDraft)="saveDraft(t.id, $event)"
+        (confirmDraft)="confirm(t.id, $event)"
+        (retire)="retire(t.id, $event)"
+        (saveServices)="saveServices(t.id, $event)"
+        (requestPreview)="store.loadPreview(t.id, $event)"
+      />
+    }
+  </ng-container>
+</nz-drawer>

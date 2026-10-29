@@ -1,0 +1,105 @@
+<p class="text-muted">{{ text.requirementsHint }}</p>
+
+@if (!readonly()) {
+  <form nz-form nzLayout="vertical" [formGroup]="form" (ngSubmit)="submit()">
+    <div class="grid">
+      <nz-form-item>
+        <nz-form-label nzRequired>{{ text.requirementName }}</nz-form-label>
+        <nz-form-control [nzErrorTip]="text.requirementNameError" [nzValidateStatus]="duplicate() ? 'error' : ''">
+          <input nz-input formControlName="name" maxlength="200" />
+        </nz-form-control>
+        @if (duplicate()) {
+          <div class="error">{{ text.requirementNameError }}</div>
+        }
+      </nz-form-item>
+      <nz-form-item>
+        <nz-form-label>{{ text.category }}</nz-form-label>
+        <nz-form-control>
+          <nz-select formControlName="category">
+            @for (c of categories; track c) {
+              <nz-option [nzValue]="c" [nzLabel]="categoryLabels[c]" />
+            }
+          </nz-select>
+        </nz-form-control>
+      </nz-form-item>
+      <nz-form-item>
+        <nz-form-label>{{ text.forStep }}</nz-form-label>
+        <nz-form-control>
+          <nz-select formControlName="stepKey" nzAllowClear [nzPlaceHolder]="text.noStep">
+            @for (s of steps(); track s.key) {
+              <nz-option [nzValue]="s.key" [nzLabel]="s.key + ' — ' + s.name" />
+            }
+          </nz-select>
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+    <div class="grid">
+      <nz-form-item>
+        <nz-form-control><label nz-checkbox formControlName="required">{{ text.required }}</label></nz-form-control>
+      </nz-form-item>
+      <nz-form-item>
+        <nz-form-control><label nz-checkbox formControlName="perPeriod">{{ text.perPeriod }}</label></nz-form-control>
+      </nz-form-item>
+    </div>
+    <nz-form-item>
+      <nz-form-label>{{ text.instructions }}</nz-form-label>
+      <nz-form-control><textarea nz-input formControlName="instructions" rows="2" maxlength="1000"></textarea></nz-form-control>
+    </nz-form-item>
+    <button nz-button nzType="dashed" type="submit">
+      <nz-icon [nzType]="editing() === null ? 'plus' : 'check'" />
+      {{ editing() === null ? text.addRequirement : text.updateRequirement }}
+    </button>
+    @if (editing() !== null) {
+      <button nz-button type="button" style="margin-left: 8px" (click)="reset()">{{ text.cancel }}</button>
+    }
+  </form>
+}
+
+<nz-table
+  [nzData]="requirements()"
+  [nzShowPagination]="false"
+  [nzNoResult]="text.noRequirements"
+  [nzScroll]="{ x: '760px' }"
+  nzSize="small"
+  style="margin-top: 16px"
+>
+  <thead>
+    <tr>
+      <th nzWidth="50px">{{ text.stepNo }}</th>
+      <th nzWidth="240px">{{ text.requirementName }}</th>
+      <th nzWidth="150px">{{ text.category }}</th>
+      <th nzWidth="200px">{{ text.forStep }}</th>
+      <th nzWidth="150px"></th>
+    </tr>
+  </thead>
+  <tbody>
+    @for (r of requirements(); track $index; let i = $index; let first = $first; let last = $last) {
+      <tr>
+        <td>{{ i + 1 }}</td>
+        <td>
+          {{ r.name }}
+          @if (!r.required) {
+            <nz-tag>{{ text.ifAny }}</nz-tag>
+          }
+          <div class="text-muted">{{ r.perPeriod ? text.perPeriod : text.once }}@if (r.instructions) { · {{ r.instructions }} }</div>
+        </td>
+        <td>{{ categoryLabels[r.category] }}</td>
+        <td>{{ r.stepKey ? (stepNames().get(r.stepKey) ?? r.stepKey) : text.noStep }}</td>
+        <td>
+          @if (!readonly()) {
+            <button nz-button nzType="text" nzSize="small" [attr.aria-label]="text.moveUp" [disabled]="first" (click)="move(i, -1)">
+              <nz-icon nzType="arrow-up" />
+            </button>
+            <button nz-button nzType="text" nzSize="small" [attr.aria-label]="text.moveDown" [disabled]="last" (click)="move(i, 1)">
+              <nz-icon nzType="arrow-down" />
+            </button>
+            <button nz-button nzType="link" nzSize="small" (click)="edit(i)">{{ text.edit }}</button>
+            <button nz-button nzType="text" nzDanger nzSize="small" [attr.aria-label]="text.remove" (click)="remove(i)">
+              <nz-icon nzType="delete" />
+            </button>
+          }
+        </td>
+      </tr>
+    }
+  </tbody>
+</nz-table>

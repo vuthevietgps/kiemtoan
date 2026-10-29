@@ -1,0 +1,85 @@
+<app-page-header [title]="text.title" [subtitle]="text.subtitle">
+  <button nz-button *appCan="'customers:create'" (click)="importVisible.set(true)">{{ importText.title }}</button>
+  <button nz-button [nzLoading]="exporting()" [disabled]="exporting()" (click)="export()">{{ importText.export }}</button>
+  <button nz-button nzType="primary" *appCan="'customers:create'" (click)="formVisible.set(true)">
+    <nz-icon nzType="plus" /> {{ text.add }}
+  </button>
+</app-page-header>
+<app-customer-import-panel [open]="importVisible()" (closed)="importVisible.set(false)" (imported)="load()" />
+
+@if (loadError(); as error) { <nz-alert nzType="error" [nzMessage]="error" /><button nz-button (click)="load()">{{ text.retry }}</button> }
+<div class="panel">
+  <div class="filters">
+    <nz-input-group [nzSuffix]="searchIcon">
+      <input
+        nz-input
+        [placeholder]="text.search"
+        [(ngModel)]="search"
+        (keyup.enter)="applyFilter()"
+      />
+    </nz-input-group>
+    <ng-template #searchIcon><nz-icon nzType="search" /></ng-template>
+    <nz-select
+      [nzPlaceHolder]="text.allStatuses"
+      nzAllowClear
+      [(ngModel)]="status"
+      (ngModelChange)="applyFilter()"
+    >
+      @for (o of statusOptions; track o.value) {
+        <nz-option [nzValue]="o.value" [nzLabel]="o.label" />
+      }
+    </nz-select>
+    @if (store.owners().length) { <nz-select nzAllowClear [nzPlaceHolder]="text.allOwners" [(ngModel)]="ownerId" (ngModelChange)="applyFilter()">@for (owner of store.owners(); track owner.id) { <nz-option [nzValue]="owner.id" [nzLabel]="owner.fullName" /> }</nz-select> }
+    <button nz-button (click)="applyFilter()">{{ text.find }}</button>
+  </div>
+
+  <nz-table
+    #table
+    [nzData]="items()"
+    [nzLoading]="loading()"
+    [nzFrontPagination]="false"
+    [nzTotal]="total()"
+    [nzPageIndex]="page()"
+    [nzPageSize]="pageSize()"
+    [nzShowSizeChanger]="true"
+    [nzScroll]="{ x: '760px' }"
+    nzSize="middle"
+    (nzQueryParams)="onQueryParams($event)"
+  >
+    <thead>
+      <tr>
+        <th>{{ text.name }}</th>
+        <th nzWidth="140px">{{ text.taxCode }}</th>
+        <th nzWidth="180px">{{ text.owner }}</th>
+        <th nzWidth="140px">{{ text.status }}</th>
+        <th nzWidth="90px" class="text-right">Số HĐ</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (c of table.data; track c.id) {
+        <tr>
+          <td><a [routerLink]="['/customers', c.id]">{{ c.name }}</a></td>
+          <td>{{ c.taxCode }}</td>
+          <td>{{ c.owner?.fullName ?? '—' }}</td>
+          <td>
+            <nz-tag [nzColor]="statusColors[c.status]">{{ statusLabels[c.status] }}</nz-tag>
+          </td>
+          <td class="text-right">{{ c.contractCount }}</td>
+        </tr>
+      }
+    </tbody>
+  </nz-table>
+</div>
+
+<nz-modal
+  [nzVisible]="formVisible()"
+  [nzTitle]="text.add"
+  [nzFooter]="null"
+  nzWidth="760px"
+  (nzOnCancel)="formVisible.set(false)"
+>
+  <ng-container *nzModalContent>
+    @if (store.error(); as error) { <nz-alert nzType="error" [nzMessage]="error" /> }
+    <app-customer-form [users]="store.owners()" [saving]="store.busy()" (submitted)="save($event)" (cancelled)="formVisible.set(false)" />
+  </ng-container>
+</nz-modal>

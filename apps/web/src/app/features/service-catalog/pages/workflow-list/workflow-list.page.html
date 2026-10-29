@@ -1,0 +1,108 @@
+<app-page-header [title]="text.title" [subtitle]="text.subtitle">
+  <button nz-button nzType="primary" *appCan="'workflow-templates:create'" (click)="openCreate()">
+    <nz-icon nzType="plus" /> {{ text.add }}
+  </button>
+</app-page-header>
+
+<div class="panel">
+  <div class="filters">
+    <nz-select
+      [ngModel]="store.filter().serviceTypeId"
+      (ngModelChange)="store.setFilter({ serviceTypeId: $event })"
+      [nzPlaceHolder]="text.allServices"
+      style="width: 100%; max-width: 280px"
+    >
+      <nz-option nzValue="" [nzLabel]="text.allServices" />
+      @for (s of services(); track s.id) {
+        <nz-option [nzValue]="s.id" [nzLabel]="s.code + ' — ' + s.name" />
+      }
+    </nz-select>
+    <input
+      nz-input
+      [(ngModel)]="search"
+      [placeholder]="text.search"
+      (keyup.enter)="store.setFilter({ search: search.trim() })"
+      (blur)="store.setFilter({ search: search.trim() })"
+    />
+  </div>
+
+  @if (store.error()) {
+    <nz-alert nzType="error" [nzMessage]="store.error()" nzShowIcon />
+  }
+
+  <nz-table
+    [nzData]="store.items()"
+    [nzLoading]="store.loading()"
+    [nzFrontPagination]="false"
+    [nzTotal]="store.total()"
+    [nzPageIndex]="store.filter().page"
+    [nzPageSize]="20"
+    (nzPageIndexChange)="store.setFilter({ page: $event })"
+    [nzScroll]="{ x: '860px' }"
+    nzSize="middle"
+  >
+    <thead>
+      <tr>
+        <th nzWidth="150px">{{ text.code }}</th>
+        <th nzWidth="260px">{{ text.name }}</th>
+        <th nzWidth="180px">{{ text.service }}</th>
+        <th nzWidth="140px">{{ text.activeVersion }}</th>
+        <th nzWidth="90px">{{ text.draft }}</th>
+        <th nzWidth="80px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (t of store.items(); track t.id) {
+        <tr>
+          <td>
+            {{ t.code }}
+            @if (t.isDefault) {
+              <nz-tag nzColor="blue">{{ text.isDefault }}</nz-tag>
+            }
+          </td>
+          <td>{{ t.name }}</td>
+          <td>{{ t.serviceType.code }} — {{ t.serviceType.name }}</td>
+          <td>
+            @if (t.activeVersion) {
+              v{{ t.activeVersion.versionNo }} · {{ t.activeVersion._count.steps }} bước
+            } @else {
+              <span class="text-muted">{{ text.noVersion }}</span>
+            }
+          </td>
+          <td>
+            @if (t.draftVersion) {
+              <nz-tag nzColor="orange">v{{ t.draftVersion.versionNo }}</nz-tag>
+            }
+          </td>
+          <td><a [routerLink]="['/service-catalog/workflows', t.id]">{{ text.open }}</a></td>
+        </tr>
+      }
+    </tbody>
+  </nz-table>
+</div>
+
+<nz-modal
+  [nzVisible]="createVisible()"
+  [nzTitle]="text.createTitle"
+  [nzOkText]="text.create"
+  [nzCancelText]="text.cancel"
+  [nzOkLoading]="store.busy()"
+  [nzOkDisabled]="!newService || newName.trim().length < 2"
+  (nzOnOk)="create()"
+  (nzOnCancel)="createVisible.set(false)"
+>
+  <ng-container *nzModalContent>
+    <nz-form-item>
+      <nz-form-label nzRequired>{{ text.service }}</nz-form-label>
+      <nz-select [(ngModel)]="newService" style="width: 100%">
+        @for (s of services(); track s.id) {
+          <nz-option [nzValue]="s.id" [nzLabel]="s.code + ' — ' + s.name" />
+        }
+      </nz-select>
+    </nz-form-item>
+    <nz-form-item>
+      <nz-form-label nzRequired>{{ text.name }}</nz-form-label>
+      <input nz-input [(ngModel)]="newName" maxlength="200" />
+    </nz-form-item>
+  </ng-container>
+</nz-modal>

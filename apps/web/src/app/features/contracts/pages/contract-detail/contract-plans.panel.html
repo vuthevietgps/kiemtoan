@@ -1,0 +1,176 @@
+<div class="panel">
+  <h3>{{ text.title }}</h3>
+  <p class="text-muted">{{ text.hint }}</p>
+  @if (store.error()) {
+    <nz-alert nzType="error" nzShowIcon [nzMessage]="store.error()" style="margin-bottom: 12px" />
+  }
+
+  @for (line of store.lines(); track line.id) {
+    <div class="plan-line" style="margin-bottom: 20px">
+      <div class="filters">
+        <strong>{{ line.serviceType.code }} — {{ line.serviceType.name }}</strong>
+        @if (line.plan; as plan) {
+          <nz-tag [nzColor]="plan.status === 'CONFIRMED' ? 'green' : 'orange'">
+            {{ plan.status === 'CONFIRMED' ? text.confirmed : text.draft }}
+          </nz-tag>
+          <span class="text-muted"
+            >{{ text.workflow }} {{ plan.workflowCode }} v{{ plan.workflowVersionNo }}</span
+          >
+        } @else {
+          <nz-tag>{{ text.noPlan }}</nz-tag>
+        }
+        <nz-tag [nzColor]="generationLabels[line.taskGenerationStatus].color">
+          {{ contractsText.taskGeneration }}:
+          {{ generationLabels[line.taskGenerationStatus].label }}
+        </nz-tag>
+      </div>
+      @if (line.taskGenerationMessage && line.taskGenerationStatus !== 'DONE') {
+        <div class="text-muted">{{ line.taskGenerationMessage }}</div>
+      }
+      @if (line.plan?.status === 'CONFIRMED' && line.taskGenerationStatus === 'DONE') {
+        @if (line.periods.length > 1) {
+          <div class="period-row">
+            <span class="text-muted">{{ text.periods }}:</span>
+            @for (p of line.periods; track p.period) {
+              <nz-tag [nzColor]="p.done ? 'green' : p.completed ? 'blue' : 'default'">
+                {{ p.period }} · {{ p.completed }}/{{ p.total }}
+              </nz-tag>
+            }
+          </div>
+        }
+        <app-plan-phase-progress [steps]="line.plan!.steps" [noPhase]="text.noPhase" />
+      }
+
+      @if (line.plan; as plan) {
+        @let editing = plan.status === 'DRAFT' && canPlan();
+        @let head = header(plan.id);
+        <div class="filters plan-head">
+          @if (plan.scheduleMode === 'PROJECT') {
+            <label>
+              {{ text.startDate }}
+              @if (editing) {
+                <nz-date-picker
+                  [ngModel]="toDate(head.startDate ?? plan.startDate)"
+                  (ngModelChange)="setStart(plan.id, $event)"
+                  [nzAllowClear]="false"
+                  nzFormat="dd/MM/yyyy"
+                />
+              } @else {
+                <strong>{{ plan.startDate | date: 'dd/MM/yyyy' : 'UTC' }}</strong>
+              }
+            </label>
+          } @else {
+            <label>
+              {{ text.period }}
+              @if (editing) {
+                <input
+                  nz-input
+                  [ngModel]="head.period ?? plan.period"
+                  (ngModelChange)="store.changeHeader(plan.id, { period: $event })"
+                  [placeholder]="text.periodHint"
+                  style="width: 120px"
+                />
+              } @else {
+                <strong>{{ plan.period }}</strong>
+              }
+            </label>
+          }
+        </div>
+        @if (editing) {
+          <textarea
+            nz-input
+            rows="2"
+            maxlength="1000"
+            [placeholder]="text.note"
+            [ngModel]="head.note ?? plan.note ?? ''"
+            (ngModelChange)="store.changeHeader(plan.id, { note: $event })"
+            style="margin-bottom: 8px"
+          ></textarea>
+        } @else if (plan.note) {
+          <div class="text-muted">{{ text.note }}: {{ plan.note }}</div>
+        }
+        @if (store.previews()[plan.id]) {
+          <div class="text-muted">{{ text.previewHint }}</div>
+        }
+        @if (plan.steps.length > 0) {
+          <app-plan-steps-table
+            [steps]="plan.steps"
+            [mode]="plan.scheduleMode"
+            [users]="store.users()"
+            [readonly]="plan.status === 'CONFIRMED' || !canPlan()"
+            [pending]="pending(plan.id)"
+            [preview]="previewOf(plan.id)"
+            (changed)="store.change(plan.id, $event.stepKey, $event)"
+          />
+        }
+        @if (plan.requirements.length > 0) {
+          <div class="text-muted" style="margin-top: 8px">
+            {{ text.requirements }}:
+            @for (r of plan.requirements; track r.id; let last = $last) {
+              {{ r.name }}
+              @if (!r.required) {
+                ({{ text.ifAny }})
+              }
+              @if (!last) {
+                ,
+              }
+            }
+          </div>
+        }
+        @if (canPlan()) {
+          <div class="filters" style="margin-top: 8px">
+            @if (plan.status === 'DRAFT') {
+              @if (store.hasChanges(plan.id)) {
+                <span class="text-muted">{{ text.unsaved }}</span>
+                <button nz-button [nzLoading]="store.busy()" (click)="save(plan.id, plan.revision)">
+                  {{ text.save }}
+                </button>
+                <button
+                  nz-button
+                  nzType="text"
+                  [disabled]="store.busy()"
+                  (click)="store.discard(plan.id)"
+                >
+                  {{ text.discard }}
+                </button>
+              }
+              <button
+                nz-button
+                nzType="primary"
+                [disabled]="store.busy() || store.hasChanges(plan.id)"
+                (click)="confirm(plan.id)"
+              >
+                {{ text.confirm }}
+              </button>
+              <button nz-button [disabled]="store.busy()" (click)="create(line)">
+                {{ text.rebuild }}
+              </button>
+            } @else if (line.taskGenerationStatus !== 'DONE') {
+              <button nz-button [disabled]="store.busy()" (click)="reopen(plan.id)">
+                {{ text.reopen }}
+              </button>
+            }
+          </div>
+        }
+      } @else if (canPlan()) {
+        <div class="filters" style="margin-top: 8px">
+          <nz-select
+            [ngModel]="defaultVersion(line)"
+            (ngModelChange)="choose(line.id, $event)"
+            style="width: 100%; max-width: 320px"
+          >
+            @for (o of line.workflowOptions; track o.id) {
+              <nz-option
+                [nzValue]="o.id"
+                [nzLabel]="o.template.code + ' v' + o.versionNo + ' — ' + o.template.name"
+              />
+            }
+          </nz-select>
+          <button nz-button nzType="primary" [disabled]="store.busy()" (click)="create(line)">
+            {{ text.create }}
+          </button>
+        </div>
+      }
+    </div>
+  }
+</div>

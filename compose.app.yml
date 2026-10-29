@@ -1,0 +1,62 @@
+services:
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD}
+      POSTGRES_DB: appdb
+    volumes:
+      - database-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d appdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: ./apps/api
+      target: migrate
+    environment:
+      DATABASE_URL: ${APP_DATABASE_URL:?Set APP_DATABASE_URL}
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ./apps/api
+      target: runtime
+    environment:
+      DATABASE_URL: ${APP_DATABASE_URL:?Set APP_DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      CREDENTIAL_KEY: ${CREDENTIAL_KEY:?Set CREDENTIAL_KEY}
+      CORS_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN}
+      APP_PUBLIC_URL: ${APP_ORIGIN:?Set APP_ORIGIN}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      UPLOAD_DIR: /app/uploads
+      PORT: 3000
+    volumes:
+      - upload-data:/app/uploads
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: ./apps/web
+      target: runtime
+    ports:
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_WEB_PORT:-8082}:80"
+    depends_on:
+      - api
+
+volumes:
+  database-data:
+  upload-data:

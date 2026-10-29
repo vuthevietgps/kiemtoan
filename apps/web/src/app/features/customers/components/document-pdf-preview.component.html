@@ -1,0 +1,8 @@
+<div class="toolbar">
+  <button nz-button [disabled]="loading() || page() <= 1" (click)="navigate(page()-1)">{{ text.previousPage }}</button>
+  <span>{{ text.page }} {{ page() }} / {{ pageCount() }}</span>
+  <button nz-button [disabled]="loading() || page() >= pageCount()" (click)="navigate(page()+1)">{{ text.nextPage }}</button>
+</div>
+@if (loading()) { <p>{{ text.loading }}</p> }
+@if (error(); as error) { <p role="alert">{{ error }}</p> }
+<div class="page"><canvas #canvas [attr.aria-label]="text.previewTitle"></canvas></div>

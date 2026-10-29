@@ -1,0 +1,7 @@
+.editor { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.editor input { max-width: 380px; }
+button { margin: 3px; }
+label { display: block; margin-bottom: 12px; }
+nz-select { display: block; width: 100%; }
+.permission-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; margin: 16px 0; }
+pre { max-width: 300px; overflow-wrap: anywhere; white-space: pre-wrap; }

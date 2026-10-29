@@ -1,0 +1,299 @@
+<nz-drawer
+  [nzVisible]="!!taskId()"
+  [nzWidth]="drawerWidth"
+  [nzTitle]="task()?.title ?? 'Chi tiết công việc'"
+  (nzOnClose)="closed.emit()"
+>
+  <ng-container *nzDrawerContent>
+    <nz-spin [nzSpinning]="loading() || saving()">
+      @if (task(); as t) {
+        <div class="status-row">
+          <span class="label">Trạng thái:</span>
+          <nz-tag [nzColor]="statusColors[t.status]">{{ statusLabels[t.status] }}</nz-tag>
+          @if (t.status === 'IN_REVIEW' && t.reviewLevel) {
+            <span class="text-muted">cấp {{ t.reviewLevel }}/{{ t.reviewLevels }}</span>
+          }
+          @if (t.isStatutory) {
+            <nz-tag nzColor="red">Hạn pháp lý</nz-tag>
+          }
+          <app-urgency-tag [urgency]="t.urgency" />
+          @if (t.legacy) {
+            <nz-tag>Dữ liệu chuyển đổi</nz-tag>
+          }
+        </div>
+
+        @if (t.isOverdue) {
+          <nz-alert nzType="error" nzShowIcon nzMessage="Công việc đã quá hạn" class="block" />
+        }
+        @if (t.waitingFor.length) {
+          <nz-alert
+            nzType="info"
+            nzShowIcon
+            [nzMessage]="notReady + ' — chờ bước trước cùng kỳ: ' + t.waitingFor.join(', ')"
+            class="block"
+          />
+        }
+        @if (pending()) {
+          <nz-alert
+            nzType="warning"
+            nzShowIcon
+            nzMessage="Vui lòng tải lên file bằng chứng — tải xong sẽ tự gửi tiếp."
+            class="block"
+          />
+        }
+
+        @if (myAction() || canReview()) {
+          <div class="action-box">
+            @if (needsNote() || canReview()) {
+              <textarea
+                nz-input
+                rows="2"
+                [placeholder]="
+                  canReview()
+                    ? 'Nội dung trả lại (bắt buộc khi trả lại)'
+                    : 'Kết quả giao nộp (mã nộp, cách gửi…)'
+                "
+                [(ngModel)]="note"
+              ></textarea>
+            }
+            <div class="status-buttons">
+              @if (myAction(); as a) {
+                <button nz-button nzType="primary" (click)="act(a.action)">{{ a.label }}</button>
+              }
+              @if (canReview()) {
+                <button nz-button nzType="primary" (click)="review('ACCEPT')">
+                  <nz-icon nzType="check" />
+                  {{ t.reviewLevel === t.reviewLevels ? 'Phê duyệt' : 'Chấp nhận, chuyển cấp sau' }}
+                </button>
+                <button nz-button nzDanger (click)="review('RETURN')">
+                  <nz-icon nzType="rollback" /> Trả lại
+                </button>
+              }
+            </div>
+          </div>
+        }
+
+        <nz-descriptions nzBordered nzSize="small" [nzColumn]="1">
+          <nz-descriptions-item nzTitle="Mã việc">{{ t.code }}</nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Khách hàng">{{ t.customer.name }}</nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Hợp đồng">{{
+            t.contract?.code ?? '—'
+          }}</nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Dịch vụ">{{
+            t.serviceTypeName ?? 'Việc phát sinh'
+          }}</nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Kỳ">{{ t.period ?? '—' }}</nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Hạn">
+            <span [class.overdue]="t.isOverdue">{{ t.dueDate | date: 'dd/MM/yyyy' }}</span>
+            @if (t.originalDueDate !== t.dueDate) {
+              <span class="text-muted">
+                (hạn gốc {{ t.originalDueDate | date: 'dd/MM/yyyy' }})</span
+              >
+            }
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Người làm">
+            @if (isManager()) {
+              <nz-select
+                class="assignee"
+                nzShowSearch
+                nzAllowClear
+                nzPlaceHolder="Chưa giao"
+                [ngModel]="t.assignee?.id ?? null"
+                (ngModelChange)="reassign('assigneeId', $event)"
+              >
+                @for (u of users(); track u.id) {
+                  <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+                }
+              </nz-select>
+            } @else {
+              {{ t.assignee?.fullName ?? 'Chưa giao' }}
+            }
+          </nz-descriptions-item>
+          <nz-descriptions-item nzTitle="Soát xét">
+            {{ t.reviewLevels === 0 ? 'Không soát xét' : t.reviewLevels + ' cấp' }}
+            @if (t.returnCount) {
+              <span class="text-muted"> · trả lại {{ t.returnCount }} lần</span>
+            }
+          </nz-descriptions-item>
+          @if (t.reviewLevels >= 1) {
+            <nz-descriptions-item nzTitle="Người kiểm tra">
+              @if (isManager()) {
+                <nz-select
+                  class="assignee"
+                  nzShowSearch
+                  nzAllowClear
+                  nzPlaceHolder="Chưa chọn"
+                  [ngModel]="t.reviewerId"
+                  (ngModelChange)="reassign('reviewerId', $event)"
+                >
+                  @for (u of users(); track u.id) {
+                    <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+                  }
+                </nz-select>
+              } @else {
+                {{ t.reviewer?.fullName ?? 'Chưa chọn' }}
+              }
+            </nz-descriptions-item>
+          }
+          @if (t.reviewLevels >= 2) {
+            <nz-descriptions-item nzTitle="Người phê duyệt">
+              @if (isManager()) {
+                <nz-select
+                  class="assignee"
+                  nzShowSearch
+                  nzAllowClear
+                  nzPlaceHolder="Chưa chọn"
+                  [ngModel]="t.approverId"
+                  (ngModelChange)="reassign('approverId', $event)"
+                >
+                  @for (u of users(); track u.id) {
+                    <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+                  }
+                </nz-select>
+              } @else {
+                {{ t.approver?.fullName ?? 'Chưa chọn' }}
+              }
+            </nz-descriptions-item>
+          }
+          <nz-descriptions-item nzTitle="Bằng chứng">
+            {{ t.requiresEvidence ? 'Bắt buộc' : 'Không bắt buộc'
+            }}{{ t.requiresDelivery ? ' · cần giao nộp' : '' }}
+          </nz-descriptions-item>
+          @if (t.note) {
+            <nz-descriptions-item nzTitle="Ghi chú">{{ t.note }}</nz-descriptions-item>
+          }
+          @if (t.startedAt) {
+            <nz-descriptions-item nzTitle="Bắt đầu">{{
+              t.startedAt | date: 'dd/MM/yyyy HH:mm'
+            }}</nz-descriptions-item>
+          }
+          @if (t.firstSubmittedAt) {
+            <nz-descriptions-item nzTitle="Nộp lần đầu">{{
+              t.firstSubmittedAt | date: 'dd/MM/yyyy HH:mm'
+            }}</nz-descriptions-item>
+          }
+          @if (t.approvedAt) {
+            <nz-descriptions-item nzTitle="Phê duyệt">
+              {{ t.approvedBy?.fullName }} — {{ t.approvedAt | date: 'dd/MM/yyyy HH:mm' }}
+            </nz-descriptions-item>
+          }
+          @if (t.completedAt) {
+            <nz-descriptions-item nzTitle="Hoàn thành">{{
+              t.completedAt | date: 'dd/MM/yyyy HH:mm'
+            }}</nz-descriptions-item>
+          }
+          @if (t.resultNote) {
+            <nz-descriptions-item nzTitle="Kết quả">{{ t.resultNote }}</nz-descriptions-item>
+          }
+        </nz-descriptions>
+
+        <nz-divider nzText="Hồ sơ cần thu của khách" nzOrientation="left" />
+        <app-task-documents
+          [query]="{ taskId: t.id }"
+          [canAct]="canUpdate()"
+          (changed)="refresh()"
+        />
+
+        <nz-divider nzText="Theo dõi: chờ khách, tạm dừng, gia hạn" nzOrientation="left" />
+        <app-task-follow-up
+          [task]="t"
+          [isAssignee]="isAssignee()"
+          [canManage]="isManager()"
+          (changed)="refresh()"
+        />
+
+        <nz-divider nzText="File bằng chứng / kết quả" nzOrientation="left" />
+        @for (doc of t.documents; track doc.id) {
+          <div class="doc">
+            <nz-icon nzType="file" />
+            <div class="doc-body">
+              <a [href]="downloadUrl(doc.id)" target="_blank" rel="noopener">{{ doc.fileName }}</a>
+              <div class="text-muted small">
+                {{ doc.size / 1024 | number: '1.0-1' }} KB · {{ doc.uploadedBy.fullName }} ·
+                {{ doc.createdAt | date: 'dd/MM/yyyy HH:mm' }}
+                @if (doc.note) {
+                  <br />{{ doc.note }}
+                }
+              </div>
+            </div>
+          </div>
+        } @empty {
+          <p class="text-muted">Chưa có file bằng chứng.</p>
+        }
+
+        @if (isAssignee() || isManager()) {
+          <div class="upload" [class.highlight]="!!pending()">
+            <input
+              nz-input
+              placeholder="Ghi chú cho file (không bắt buộc)"
+              [(ngModel)]="evidenceNote"
+            />
+            <nz-upload [nzBeforeUpload]="beforeUpload" [nzShowUploadList]="false">
+              <button nz-button [nzLoading]="uploading()">
+                <nz-icon nzType="upload" /> Tải lên bằng chứng
+              </button>
+            </nz-upload>
+          </div>
+        }
+
+        @if (t.reviews.length) {
+          <nz-divider nzText="Soát xét" nzOrientation="left" />
+          <nz-timeline>
+            @for (r of t.reviews; track r.id) {
+              <nz-timeline-item [nzColor]="r.decision === 'ACCEPT' ? 'green' : 'red'">
+                <div>
+                  Cấp {{ r.level }} · {{ r.decision === 'ACCEPT' ? 'Chấp nhận' : 'Trả lại' }}
+                  @if (r.note) {
+                    — {{ r.note }}
+                  }
+                </div>
+                <div class="text-muted small">
+                  {{ r.reviewer?.fullName ?? '—' }} · {{ r.decidedAt | date: 'dd/MM/yyyy HH:mm' }}
+                </div>
+              </nz-timeline-item>
+            }
+          </nz-timeline>
+        }
+
+        <nz-divider nzText="Bình luận" nzOrientation="left" />
+        <app-task-comments [taskId]="t.id" [comments]="t.comments" (changed)="refresh()" />
+
+        <nz-divider nzText="Lịch sử trạng thái" nzOrientation="left" />
+        <nz-timeline>
+          @for (e of t.statusEvents; track e.id) {
+            <nz-timeline-item>
+              <div>
+                {{ e.fromStatus ? statusLabels[e.fromStatus] + ' → ' : ''
+                }}{{ statusLabels[e.toStatus] }}
+                @if (e.note) {
+                  — {{ e.note }}
+                }
+              </div>
+              <div class="text-muted small">
+                {{ e.actor?.fullName ?? 'Hệ thống' }} ·
+                {{ e.occurredAt | date: 'dd/MM/yyyy HH:mm' }}
+              </div>
+            </nz-timeline-item>
+          } @empty {
+            <p class="text-muted">Chưa có lịch sử.</p>
+          }
+        </nz-timeline>
+
+        @if (otherHistory().length) {
+          <nz-divider nzText="Nhật ký khác" nzOrientation="left" />
+          <nz-timeline>
+            @for (h of otherHistory(); track h.id) {
+              <nz-timeline-item>
+                <div>{{ historyText(h) }}</div>
+                <div class="text-muted small">
+                  {{ h.user?.fullName ?? 'Hệ thống' }} ·
+                  {{ h.createdAt | date: 'dd/MM/yyyy HH:mm' }}
+                </div>
+              </nz-timeline-item>
+            }
+          </nz-timeline>
+        }
+      }
+    </nz-spin>
+  </ng-container>
+</nz-drawer>

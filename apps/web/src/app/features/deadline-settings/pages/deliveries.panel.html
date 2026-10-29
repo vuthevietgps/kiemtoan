@@ -1,0 +1,74 @@
+<div class="filters">
+  <input nz-input class="search" [placeholder]="text.searchDelivery" [ngModel]="search()" (ngModelChange)="search.set($event)" (keyup.enter)="applySearch()" (blur)="applySearch()" />
+  <nz-select nzAllowClear [nzPlaceHolder]="text.allStatuses" [ngModel]="store.query().status" (ngModelChange)="store.setQuery({ status: $event ?? null })">
+    @for (s of statuses; track s) {
+      <nz-option [nzValue]="s" [nzLabel]="statusLabels[s]" />
+    }
+  </nz-select>
+  <nz-select nzAllowClear [nzPlaceHolder]="text.allChannels" [ngModel]="store.query().channel" (ngModelChange)="store.setQuery({ channel: $event ?? null })">
+    @for (c of channels; track c) {
+      <nz-option [nzValue]="c" [nzLabel]="channelLabels[c]" />
+    }
+  </nz-select>
+</div>
+
+@if (store.error()) {
+  <nz-alert class="block" nzType="error" nzShowIcon [nzMessage]="store.error()" />
+}
+@if (hasSkipped()) {
+  <nz-alert class="block" nzType="warning" nzShowIcon [nzMessage]="text.smtpWarning" />
+}
+
+<nz-table
+  #table
+  nzSize="small"
+  [nzData]="store.deliveries()"
+  [nzLoading]="store.loading()"
+  [nzFrontPagination]="false"
+  [nzTotal]="store.total()"
+  [nzPageIndex]="store.query().page"
+  [nzPageSize]="store.query().pageSize"
+  [nzScroll]="{ x: '900px' }"
+  (nzPageIndexChange)="store.setQuery({ page: $event })"
+>
+  <thead>
+    <tr>
+      <th nzWidth="130px">{{ text.createdAt }}</th>
+      <th nzWidth="160px">{{ text.recipient }}</th>
+      <th>{{ text.titleCol }}</th>
+      <th nzWidth="120px">{{ text.channel }}</th>
+      <th nzWidth="110px">{{ text.state }}</th>
+      <th nzWidth="70px">{{ text.attempts }}</th>
+      @if (canRetry()) {
+        <th nzWidth="90px"></th>
+      }
+    </tr>
+  </thead>
+  <tbody>
+    @for (d of table.data; track d.id) {
+      <tr>
+        <td>{{ d.createdAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+        <td>
+          {{ d.user.fullName }}
+          <div class="muted">{{ d.user.email }}</div>
+        </td>
+        <td>
+          {{ d.title }}
+          @if (d.lastError) {
+            <div class="error">{{ text.lastError }}: {{ d.lastError }}</div>
+          }
+        </td>
+        <td>{{ channelLabels[d.channel] }}</td>
+        <td><nz-tag [nzColor]="statusColors[d.status]">{{ statusLabels[d.status] }}</nz-tag></td>
+        <td>{{ d.attempts }}</td>
+        @if (canRetry()) {
+          <td>
+            @if (retryable(d)) {
+              <button nz-button nzType="link" type="button" [disabled]="store.busy()" (click)="retry(d.id)">{{ text.retry }}</button>
+            }
+          </td>
+        }
+      </tr>
+    }
+  </tbody>
+</nz-table>

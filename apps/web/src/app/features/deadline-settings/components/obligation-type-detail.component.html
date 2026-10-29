@@ -1,0 +1,134 @@
+@let t = type();
+<h3 class="title">{{ t.code }} — {{ t.name }}</h3>
+<div class="tags">
+  <nz-tag>{{ groups[t.group] }}</nz-tag>
+  <nz-tag>{{ text.cycle }}: {{ cycles[t.cycle] }}</nz-tag>
+  @if (t.retiredAt) {
+    <nz-tag nzColor="default">{{ text.retired }}</nz-tag>
+  } @else if (confirmed(); as c) {
+    <nz-tag nzColor="green">{{ text.confirmedVersion(c.versionNo) }}</nz-tag>
+  } @else {
+    <nz-tag nzColor="orange">{{ text.noConfirmed }}</nz-tag>
+  }
+  @if (draft(); as d) {
+    <nz-tag nzColor="blue">{{ text.draftVersion(d.versionNo) }}</nz-tag>
+  }
+</div>
+@if (t.retiredAt) {
+  <nz-alert nzType="info" nzShowIcon [nzMessage]="text.retired + ': ' + (t.retireReason ?? '')" />
+}
+
+<section>
+  <h4>{{ text.rule }}</h4>
+  @if (confirmed(); as c) {
+    <p><strong>v{{ c.versionNo }}</strong> ({{ c.confirmedAt | date: 'dd/MM/yyyy' }}): {{ summary(c) }}</p>
+    @if (c.legalBasis) {
+      <p class="muted">{{ text.legalBasis }}: {{ c.legalBasis }}</p>
+    }
+  }
+  @if (draft(); as d) {
+    <p><strong>{{ text.draftVersion(d.versionNo) }}</strong>: {{ summary(d) }}</p>
+  }
+
+  @if (!t.retiredAt) {
+    @if (editing()) {
+      <app-obligation-rule-form
+        mode="draft"
+        [cycle]="t.cycle"
+        [value]="formValue()"
+        [busy]="busy()"
+        (saved)="onSaveDraft($event)"
+        (cancelled)="editing.set(false)"
+      />
+    } @else {
+      <div class="actions">
+        @if (canCreate()) {
+          <button nz-button type="button" (click)="editing.set(true)">{{ text.editDraft }}</button>
+        }
+        @if (canApprove() && draft(); as d) {
+          <button nz-button nzType="primary" type="button" [nzLoading]="busy()" (click)="confirmDraft.emit(d.revision)">
+            {{ text.confirmDraft }}
+          </button>
+        }
+        @if (canApprove() && !retiring()) {
+          <button nz-button nzDanger type="button" (click)="retiring.set(true)">{{ text.retire }}</button>
+        }
+      </div>
+      @if (canApprove() && draft()) {
+        <p class="muted">{{ text.confirmDraftHint }}</p>
+      }
+      @if (retiring()) {
+        <div class="inline">
+          <input nz-input maxlength="500" [placeholder]="text.reason" [ngModel]="reason()" (ngModelChange)="reason.set($event)" />
+          <button nz-button type="button" (click)="retiring.set(false)">{{ text.cancel }}</button>
+          <button nz-button nzDanger type="button" [disabled]="!reasonValid()" [nzLoading]="busy()" (click)="onRetire()">
+            {{ text.retire }}
+          </button>
+        </div>
+      }
+    }
+  }
+</section>
+
+<section>
+  <h4>{{ text.services }}</h4>
+  @if (canCreate() && !t.retiredAt) {
+    <div class="inline">
+      <nz-select class="grow" nzMode="multiple" [ngModel]="services()" (ngModelChange)="services.set($event)" [nzPlaceHolder]="text.noServices">
+        @for (s of serviceOptions(); track s.id) {
+          <nz-option [nzValue]="s.id" [nzLabel]="s.label" />
+        }
+      </nz-select>
+      <button nz-button type="button" [disabled]="!servicesChanged()" [nzLoading]="busy()" (click)="saveServices.emit(services())">
+        {{ text.saveServices }}
+      </button>
+    </div>
+  } @else {
+    <p>
+      @for (s of t.services; track s.id) {
+        <nz-tag>{{ s.code }} — {{ s.name }}</nz-tag>
+      } @empty {
+        <span class="muted">{{ text.noServices }}</span>
+      }
+    </p>
+  }
+</section>
+
+@if (formValue()) {
+  <section>
+    <h4>{{ text.preview }}</h4>
+    <nz-select class="grow" nzShowSearch nzAllowClear [nzPlaceHolder]="text.previewCustomer" [ngModel]="previewCustomer()" (ngModelChange)="onPreview($event)">
+      @for (c of customerOptions(); track c.id) {
+        <nz-option [nzValue]="c.id" [nzLabel]="c.label" />
+      }
+    </nz-select>
+    @if (preview(); as p) {
+      <nz-alert
+        class="block"
+        [nzType]="p.applies ? 'success' : 'warning'"
+        nzShowIcon
+        [nzMessage]="(p.applies ? text.previewApplies : text.previewNotApplies) + ' (v' + p.versionNo + ')'"
+      />
+      <nz-table #pt nzSize="small" [nzData]="p.periods" [nzShowPagination]="false" [nzScroll]="{ x: '420px' }">
+        <thead>
+          <tr>
+            <th>{{ text.period }}</th>
+            <th>{{ text.periodEnd }}</th>
+            <th>{{ text.ruleDue }}</th>
+            <th>{{ text.dueDate }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of pt.data; track r.period) {
+            <tr>
+              <td>{{ r.period }}</td>
+              <td>{{ r.periodEnd | date: 'dd/MM/yyyy' }}</td>
+              <td>{{ r.ruleDue | date: 'dd/MM/yyyy' }}</td>
+              <td [class.shifted]="r.dueDate !== r.ruleDue">{{ r.dueDate | date: 'dd/MM/yyyy' }}</td>
+            </tr>
+          }
+        </tbody>
+      </nz-table>
+    }
+  </section>
+}

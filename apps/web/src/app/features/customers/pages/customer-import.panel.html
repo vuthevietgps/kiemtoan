@@ -1,0 +1,19 @@
+<nz-modal [nzVisible]="open()" [nzTitle]="text.title" [nzFooter]="null" [nzWidth]="1000" [nzClosable]="!busy()" [nzMaskClosable]="!busy()" (nzOnCancel)="closed.emit()">
+  <ng-container *nzModalContent>
+    @if (error(); as error) { <nz-alert nzType="error" [nzMessage]="error" /> }
+    <p>{{ text.invalidFile }}</p>
+    <button nz-button [disabled]="busy()" (click)="template()">{{ text.template }}</button>
+    <label style="display:block;margin:16px 0">{{ text.choose }}<input type="file" accept=".xlsx" [disabled]="busy()" (change)="select($event)" /></label>
+    @if (preview(); as batch) {
+      <p>{{ text.validCount }}: {{ batch.validCount }} · {{ text.invalidCount }}: {{ batch.invalidCount }}</p>
+      <p>{{ text.expires }} {{ batch.expiresAt | date:'dd/MM/yyyy HH:mm' }}</p>
+      <nz-table #table [nzData]="batch.rows" [nzPageSize]="20" [nzScroll]="{x:'850px'}">
+        <thead><tr><th>{{ text.row }}</th><th>{{ text.name }}</th><th>{{ text.taxCode }}</th><th>{{ text.owner }}</th><th>{{ text.errors }}</th></tr></thead>
+        <tbody>@for (row of table.data; track row.row) { <tr><td>{{ row.row }}</td><td>{{ row.input.name }}</td><td>{{ row.input.taxCode }}</td><td>{{ row.ownerEmail }}</td><td>{{ row.errors.length ? row.errors.join('; ') : text.valid }}</td></tr> }</tbody>
+      </nz-table>
+      <nz-alert nzType="warning" [nzMessage]="text.warning" />
+      <label nz-checkbox [ngModel]="approved()" (ngModelChange)="approved.set($event)" [nzDisabled]="busy()">{{ text.approve }}</label>
+      <div style="margin-top:16px"><button nz-button nzType="primary" [nzLoading]="busy()" [disabled]="!approved() || !batch.validCount || busy()" (click)="confirm()">{{ text.confirm }}</button></div>
+    }
+  </ng-container>
+</nz-modal>

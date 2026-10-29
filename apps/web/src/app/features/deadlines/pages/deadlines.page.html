@@ -1,0 +1,86 @@
+<app-page-header [title]="text.title" [subtitle]="text.subtitle" />
+
+<app-obligation-summary-cards
+  class="cards"
+  [summary]="store.summary()"
+  [active]="store.query().status"
+  (pick)="selectStatus($event)"
+/>
+
+<div class="filters">
+  <input
+    nz-input
+    class="search"
+    [placeholder]="text.search"
+    [ngModel]="search()"
+    (ngModelChange)="search.set($event)"
+    (keyup.enter)="applySearch()"
+    (blur)="applySearch()"
+  />
+  <nz-select
+    nzShowSearch
+    nzAllowClear
+    [nzPlaceHolder]="text.allTypes"
+    [ngModel]="store.query().obligationTypeId"
+    (ngModelChange)="filter({ obligationTypeId: $event ?? null })"
+  >
+    @for (t of types(); track t.id) {
+      <nz-option [nzValue]="t.id" [nzLabel]="t.code + ' — ' + t.name" />
+    }
+  </nz-select>
+  <nz-select
+    nzAllowClear
+    [nzPlaceHolder]="text.allStatuses"
+    [ngModel]="store.query().status"
+    (ngModelChange)="filter({ status: $event ?? null })"
+  >
+    @for (s of statuses; track s) {
+      <nz-option [nzValue]="s" [nzLabel]="statusLabels[s]" />
+    }
+  </nz-select>
+  @if (canFilterOwner()) {
+    <nz-select
+      nzShowSearch
+      nzAllowClear
+      [nzPlaceHolder]="text.allOwners"
+      [ngModel]="store.query().ownerId"
+      (ngModelChange)="filter({ ownerId: $event ?? null })"
+    >
+      @for (u of owners(); track u.id) {
+        <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+      }
+    </nz-select>
+  }
+  @if (hasFilter()) {
+    <button nz-button nzType="link" type="button" (click)="reset()">{{ text.reset }}</button>
+  }
+</div>
+
+@if (store.error()) {
+  <nz-alert class="notice" nzType="error" nzShowIcon [nzMessage]="store.error()" />
+}
+
+<div class="panel">
+  <app-obligation-table
+    [items]="store.items()"
+    [total]="store.total()"
+    [page]="store.query().page"
+    [pageSize]="store.query().pageSize"
+    [loading]="store.loading()"
+    (open)="open($event)"
+    (pageChange)="filter({ page: $event })"
+  />
+</div>
+
+<app-obligation-drawer
+  [detail]="store.detail()"
+  [busy]="store.busy()"
+  [error]="store.actionError()"
+  [canUpdate]="canUpdate()"
+  [canApprove]="canApprove()"
+  (closed)="close()"
+  (action)="act($event)"
+  (openTask)="openTask($event)"
+  (openCustomer)="openCustomer($event)"
+  (downloadReceipt)="download($event)"
+/>

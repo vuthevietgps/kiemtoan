@@ -1,0 +1,28 @@
+<h2>{{ text.title }}</h2><p class="text-muted">{{ text.subtitle }}</p>
+@if (auth.user()?.mustChangePassword) { <nz-alert nzType="warning" [nzMessage]="text.required" nzShowIcon /> }
+@if (error(); as message) { <nz-alert nzType="error" [nzMessage]="message" nzShowIcon /> }
+@if (success(); as message) { <nz-alert nzType="success" [nzMessage]="message" nzShowIcon /> }
+<div class="grid">
+  <section class="panel"><h3>{{ text.profile }}</h3><form [formGroup]="profile" (ngSubmit)="saveProfile()">
+    <label>{{ text.fullName }}<input nz-input formControlName="fullName" /></label>
+    <label>{{ text.phone }}<input nz-input formControlName="phone" /></label>
+    <label>{{ text.jobTitle }}<input nz-input formControlName="title" /></label>
+    <button nz-button nzType="primary" type="submit" [disabled]="profile.invalid" [nzLoading]="busy()">{{ text.save }}</button>
+  </form></section>
+  <section class="panel"><h3>{{ text.change }}</h3><form [formGroup]="password" (ngSubmit)="changePassword()">
+    <label>{{ text.currentPassword }}<input nz-input type="password" autocomplete="current-password" formControlName="currentPassword" /></label>
+    <label>{{ text.password }}<input nz-input type="password" autocomplete="new-password" formControlName="password" /></label>
+    <label>{{ text.confirmPassword }}<input nz-input type="password" autocomplete="new-password" formControlName="confirm" /></label>
+    <p class="text-muted">{{ text.passwordPolicy }}</p>
+    <button nz-button nzType="primary" type="submit" [disabled]="password.invalid" [nzLoading]="busy()">{{ text.change }}</button>
+  </form></section>
+</div>
+<app-notification-preferences />
+<section class="panel"><h3>{{ text.sessions }}</h3>
+  <button nz-button nzDanger nz-popconfirm [nzPopconfirmTitle]="text.confirm" [disabled]="busy()" (nzOnConfirm)="revoke()">{{ text.revokeAll }}</button>
+  @if (sessions.error()) { <nz-alert nzType="error" [nzMessage]="text.error" /><button nz-button (click)="sessions.reload()">{{ text.retry }}</button> }
+  <nz-table #table [nzData]="sessions.value() ?? []" [nzFrontPagination]="false" [nzShowPagination]="false" [nzLoading]="sessions.isLoading()" [nzScroll]="{ x: '720px' }">
+    <thead><tr><th>{{ text.device }}</th><th>{{ text.ip }}</th><th>{{ text.created }}</th><th>{{ text.lastUsed }}</th><th></th></tr></thead>
+    <tbody>@for (session of table.data; track session.id) { <tr><td>{{ session.userAgent ?? text.unknown }} @if (session.current) { <b>({{ text.current }})</b> }</td><td>{{ session.ipAddress ?? '—' }}</td><td>{{ session.createdAt | date:'dd/MM/yyyy HH:mm' }}</td><td>{{ session.lastUsedAt | date:'dd/MM/yyyy HH:mm' }}</td><td><button nz-button nzDanger nz-popconfirm [nzPopconfirmTitle]="text.confirm" [disabled]="busy()" (nzOnConfirm)="revoke(session.id, session.current)">{{ text.revoke }}</button></td></tr> }</tbody>
+  </nz-table>
+</section>

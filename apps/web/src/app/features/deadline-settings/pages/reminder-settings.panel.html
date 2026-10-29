@@ -1,0 +1,84 @@
+@if (store.error()) {
+  <nz-alert class="block" nzType="error" nzShowIcon [nzMessage]="store.error()" />
+}
+
+<section>
+  <h4>{{ text.thresholds }}</h4>
+  <div class="row">
+    @for (label of [text.soon, text.priority, text.near]; track $index) {
+      <label>
+        {{ label }}
+        <nz-input-number [nzMin]="1" [nzMax]="90" [nzDisabled]="!canUpdate()" [ngModel]="thresholds()[$index]" (ngModelChange)="setThreshold('global', $index, $event)" />
+      </label>
+    }
+  </div>
+  <div class="row">
+    <label>
+      {{ text.sendTime }}
+      <nz-time-picker nzFormat="HH:mm" [nzAllowEmpty]="false" [nzDisabled]="!canUpdate()" [ngModel]="sendTimeDate()" (ngModelChange)="pickTime($event)" />
+    </label>
+    <label>
+      {{ text.escalation }}
+      <nz-input-number [nzMin]="1" [nzMax]="30" [nzDisabled]="!canUpdate()" [ngModel]="escalation()" (ngModelChange)="escalation.set($event)" />
+    </label>
+  </div>
+  @if (!valid()) {
+    <p class="error">{{ text.thresholdError }}</p>
+  }
+  @if (canUpdate()) {
+    <div class="actions">
+      <button nz-button nzType="primary" type="button" [disabled]="!valid()" [nzLoading]="store.busy()" (click)="save()">{{ text.save }}</button>
+      <button nz-button type="button" [nzLoading]="store.busy()" (click)="runNow()">{{ text.runNow }}</button>
+    </div>
+  }
+</section>
+
+<section>
+  <h4>{{ text.serviceThresholds }}</h4>
+  <p class="muted">{{ text.serviceThresholdsHint }}</p>
+  <nz-table #table nzSize="small" [nzData]="store.thresholds()" [nzShowPagination]="false" [nzScroll]="{ x: '480px' }">
+    <thead>
+      <tr>
+        <th>{{ text.service }}</th>
+        <th nzWidth="70px">{{ text.soon }}</th>
+        <th nzWidth="70px">{{ text.priority }}</th>
+        <th nzWidth="70px">{{ text.near }}</th>
+        @if (canUpdate()) {
+          <th nzWidth="130px"></th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (t of table.data; track t.serviceTypeId) {
+        <tr>
+          <td>{{ t.serviceType.code }} — {{ t.serviceType.name }}</td>
+          @for (n of t.thresholds; track $index) {
+            <td>{{ n }}</td>
+          }
+          @if (canUpdate()) {
+            <td>
+              <button nz-button nzType="link" type="button" (click)="edit(t.serviceTypeId, t.thresholds)">{{ text.edit }}</button>
+              <button nz-button nzType="link" nzDanger type="button" (click)="store.removeThresholds(t.serviceTypeId)">{{ text.remove }}</button>
+            </td>
+          }
+        </tr>
+      }
+    </tbody>
+  </nz-table>
+  @if (canUpdate()) {
+    <div class="row add">
+      <nz-select class="service" nzShowSearch [nzPlaceHolder]="text.chooseService" [ngModel]="serviceId()" (ngModelChange)="serviceId.set($event)">
+        @for (s of services(); track s.id) {
+          <nz-option [nzValue]="s.id" [nzLabel]="s.label" />
+        }
+      </nz-select>
+      @for (label of [text.soon, text.priority, text.near]; track $index) {
+        <label>
+          {{ label }}
+          <nz-input-number [nzMin]="1" [nzMax]="90" [ngModel]="serviceThresholds()[$index]" (ngModelChange)="setThreshold('service', $index, $event)" />
+        </label>
+      }
+      <button nz-button type="button" [disabled]="!serviceValid()" [nzLoading]="store.busy()" (click)="saveService()">{{ text.addThreshold }}</button>
+    </div>
+  }
+</section>

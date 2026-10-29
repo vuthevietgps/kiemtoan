@@ -1,0 +1,54 @@
+<a
+  class="trigger"
+  nz-dropdown
+  nzTrigger="click"
+  nzPlacement="bottomRight"
+  [nzDropdownMenu]="panel"
+  (nzVisibleChange)="$event && load()"
+  [attr.aria-label]="text.ariaLabel"
+>
+  <nz-badge [nzCount]="unread()" [nzOverflowCount]="99" nzSize="small">
+    <nz-icon nzType="bell" class="bell" />
+  </nz-badge>
+</a>
+<nz-dropdown-menu #panel="nzDropdownMenu">
+  <div class="bell-panel">
+    <div class="head">
+      <span class="title">{{ text.title }}</span>
+      <button nz-button nzType="link" nzSize="small" [disabled]="unread() === 0" (click)="markAll()">
+        {{ text.markAll }}
+      </button>
+    </div>
+    <div class="bell-filters" role="group">
+      <button type="button" class="filter" [class.active]="!unreadOnly()" [attr.aria-pressed]="!unreadOnly()" (click)="setFilter(false, $event)">
+        {{ text.all }}
+      </button>
+      <button type="button" class="filter" [class.active]="unreadOnly()" [attr.aria-pressed]="unreadOnly()" (click)="setFilter(true, $event)">
+        {{ text.unread }} ({{ unread() }})
+      </button>
+    </div>
+    <div class="list">
+      @for (n of items(); track n.id) {
+        <button
+          type="button"
+          class="item"
+          [class.unread]="!n.readAt"
+          [class.danger]="n.severity === 'DANGER'"
+          [class.warning]="n.severity === 'WARNING'"
+          (click)="open(n)"
+        >
+          <span class="dot"></span>
+          <span class="body">
+            @if (n.kind && kindLabels[n.kind]) {
+              <nz-tag class="kind" [nzColor]="severityColors[n.severity ?? 'INFO']">{{ kindLabels[n.kind] }}</nz-tag>
+            }
+            <span class="text">{{ n.title }}</span>
+            <span class="time">{{ n.createdAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+          </span>
+        </button>
+      } @empty {
+        <nz-empty [nzNotFoundContent]="unreadOnly() ? text.emptyUnread : text.empty" />
+      }
+    </div>
+  </div>
+</nz-dropdown-menu>

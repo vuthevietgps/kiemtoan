@@ -1,0 +1,78 @@
+<form nz-form nzLayout="vertical" [formGroup]="form" (ngSubmit)="submit()">
+  <p class="text-muted">
+    {{ text.basisSnapshot }}: {{ basisLabels[basis()] }}@if (unit()) { ({{ unit() }}) }
+  </p>
+  <nz-form-item>
+    <nz-form-label nzRequired>{{ text.effectiveFrom }}</nz-form-label>
+    <nz-form-control [nzErrorTip]="text.effectiveError">
+      <nz-date-picker formControlName="effectiveFrom" nzFormat="dd/MM/yyyy" [nzDisabledDate]="disabledDate" />
+    </nz-form-control>
+  </nz-form-item>
+
+  @if (flat) {
+    <div formArrayName="tiers">
+      <nz-form-item [formGroupName]="0">
+        <nz-form-label nzRequired>{{ text.flatPrice }}</nz-form-label>
+        <nz-form-control [nzErrorTip]="text.priceError">
+          <nz-input-number formControlName="unitPrice" [nzMin]="0" [nzFormatter]="moneyFormatter" [nzParser]="moneyParser" />
+        </nz-form-control>
+      </nz-form-item>
+    </div>
+  } @else {
+    <h4>{{ text.tiers }}</h4>
+    <div class="tier text-muted">
+      <span>{{ text.from }}</span>
+      <span>{{ text.to }}</span>
+      <span>{{ text.unitPrice }}</span>
+      <span></span>
+    </div>
+    <div formArrayName="tiers">
+      @for (tier of tiers.controls; track tier; let i = $index; let last = $last) {
+        <div class="tier" [formGroupName]="i">
+          @if (i === 0) {
+            <nz-input-number [formControl]="form.controls.firstFrom" [nzMin]="0" [nzFormatter]="moneyFormatter" [nzParser]="moneyParser" />
+          } @else {
+            <span class="from">{{ moneyFormatter(froms()[i] ?? 0) }}</span>
+          }
+          <div>
+            <nz-input-number
+              formControlName="to"
+              [nzMin]="0"
+              [nzFormatter]="moneyFormatter"
+              [nzParser]="moneyParser"
+              [nzPlaceHolder]="last ? text.unlimited : ''"
+            />
+            @if (tierErrors()[i]) {
+              <div class="error">{{ tierErrors()[i] }}</div>
+            }
+          </div>
+          <nz-input-number formControlName="unitPrice" [nzMin]="0" [nzFormatter]="moneyFormatter" [nzParser]="moneyParser" />
+          <button
+            nz-button
+            nzType="text"
+            nzDanger
+            type="button"
+            [attr.aria-label]="text.removeTier"
+            [disabled]="tiers.length === 1"
+            (click)="tiers.removeAt(i)"
+          >
+            <nz-icon nzType="delete" />
+          </button>
+        </div>
+      }
+    </div>
+    <button nz-button nzType="dashed" type="button" (click)="addTier()">
+      <nz-icon nzType="plus" /> {{ text.addTier }}
+    </button>
+  }
+
+  <nz-form-item style="margin-top: 16px">
+    <nz-form-label>{{ text.note }}</nz-form-label>
+    <nz-form-control><textarea nz-input formControlName="note" rows="2"></textarea></nz-form-control>
+  </nz-form-item>
+
+  <div class="text-right">
+    <button nz-button type="button" (click)="cancelled.emit()">{{ text.cancel }}</button>
+    <button nz-button nzType="primary" type="submit" [nzLoading]="saving()" style="margin-left: 8px">{{ text.save }}</button>
+  </div>
+</form>

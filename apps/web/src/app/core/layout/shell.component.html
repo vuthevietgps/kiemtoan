@@ -1,0 +1,53 @@
+<nz-layout class="app">
+  <nz-sider
+    class="sider"
+    nzCollapsible
+    nzBreakpoint="lg"
+    [nzWidth]="232"
+    [nzCollapsedWidth]="64"
+    [nzCollapsed]="collapsed()"
+    (nzCollapsedChange)="collapsed.set($event)"
+  >
+    <div class="brand">
+      <span class="logo">KT</span>
+      @if (!collapsed()) {
+        <span class="brand-text">Kế toán &amp; Kiểm toán</span>
+      }
+    </div>
+    <ul nz-menu nzTheme="dark" nzMode="inline" [nzInlineCollapsed]="collapsed()">
+      @for (item of menu(); track item.link) {
+        <li nz-menu-item nzMatchRouter [routerLink]="item.link" routerLinkActive="active">
+          <nz-icon [nzType]="item.icon" />
+          <span>{{ item.label }}</span>
+        </li>
+      }
+    </ul>
+  </nz-sider>
+
+  <nz-layout>
+    <nz-header class="header">
+      <div class="spacer"></div>
+      @if (auth.can('notifications:view')) { <app-notification-bell /> }
+      <a nz-dropdown [nzDropdownMenu]="userMenu" nzTrigger="click" class="user">
+        <nz-avatar [nzText]="initials()" class="avatar" />
+        <span class="user-text">
+          <span class="name">{{ auth.user()?.fullName }}</span>
+          <span class="role">{{ auth.roleLabel() }}</span>
+        </span>
+        <nz-icon nzType="down" />
+      </a>
+      <nz-dropdown-menu #userMenu="nzDropdownMenu">
+        <ul nz-menu>
+          <li nz-menu-item routerLink="/account">{{ accountText.title }}</li>
+          <li nz-menu-item (click)="auth.logout()">
+            <nz-icon nzType="logout" /> Đăng xuất
+          </li>
+        </ul>
+      </nz-dropdown-menu>
+    </nz-header>
+
+    <nz-content class="content">
+      <router-outlet />
+    </nz-content>
+  </nz-layout>
+</nz-layout>

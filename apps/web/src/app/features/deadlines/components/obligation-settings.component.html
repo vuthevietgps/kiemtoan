@@ -1,0 +1,51 @@
+<h4>{{ text.settingsTitle }}</h4>
+<p class="hint">{{ text.settingsHint }}</p>
+@for (s of settings(); track s.id) {
+  <div class="item">
+    <div class="head">
+      <div>
+        <div class="name">{{ s.code }} — {{ s.name }}</div>
+        <div class="muted">
+          {{ s.byService ? text.byService : text.notByService }}
+          @if (s.setting) {
+            · {{ s.setting.reason }}
+          }
+        </div>
+      </div>
+      <div class="state">
+        <nz-tag [nzColor]="enabled(s) ? 'green' : 'default'">
+          {{ enabled(s) ? text.enabled : text.disabled }}
+        </nz-tag>
+        @if (canUpdate() && editing() !== s.id) {
+          <button nz-button nzSize="small" type="button" [disabled]="busy()" (click)="edit(s.id)">
+            {{ enabled(s) ? text.turnOff : text.turnOn }}
+          </button>
+        }
+      </div>
+    </div>
+    @if (editing() === s.id) {
+      <div class="form">
+        <input
+          nz-input
+          maxlength="500"
+          [placeholder]="text.reason"
+          [ngModel]="reason()"
+          (ngModelChange)="reason.set($event)"
+        />
+        <button nz-button nzSize="small" type="button" (click)="cancel()">{{ text.cancel }}</button>
+        <button
+          nz-button
+          nzSize="small"
+          nzType="primary"
+          type="button"
+          [disabled]="!reasonValid() || busy()"
+          (click)="confirm(s)"
+        >
+          {{ text.confirm }}
+        </button>
+      </div>
+    }
+  </div>
+} @empty {
+  <p class="muted">{{ text.noTypes }}</p>
+}

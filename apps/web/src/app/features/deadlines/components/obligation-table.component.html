@@ -1,0 +1,62 @@
+<nz-table
+  #table
+  nzSize="small"
+  [nzData]="items()"
+  [nzLoading]="loading()"
+  [nzFrontPagination]="false"
+  [nzTotal]="total()"
+  [nzPageIndex]="page()"
+  [nzPageSize]="pageSize()"
+  [nzScroll]="{ x: showCustomer() ? '860px' : '640px' }"
+  [nzNoResult]="text.empty"
+  (nzPageIndexChange)="pageChange.emit($event)"
+>
+  <thead>
+    <tr>
+      @if (showCustomer()) {
+        <th>{{ text.customer }}</th>
+      }
+      <th>{{ text.type }}</th>
+      <th nzWidth="90px">{{ text.period }}</th>
+      <th nzWidth="110px">{{ text.dueDate }}</th>
+      <th nzWidth="150px">{{ text.status }}</th>
+      @if (showCustomer()) {
+        <th nzWidth="150px">{{ text.owner }}</th>
+      }
+      <th nzWidth="80px">{{ text.tasks }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    @for (o of table.data; track o.id) {
+      <tr class="row" (click)="open.emit(o.id)">
+        @if (showCustomer()) {
+          <td>
+            <div class="name">{{ o.customer.name }}</div>
+            <div class="muted">{{ o.customer.taxCode }}</div>
+          </td>
+        }
+        <td>
+          <div class="name">{{ o.obligationType.code }}</div>
+          <div class="muted">{{ o.obligationType.name }}</div>
+        </td>
+        <td>{{ o.period }}</td>
+        <td>
+          {{ o.dueDate | date: 'dd/MM/yyyy' }}
+          @if (o.dueDate !== o.originalDueDate) {
+            <span class="changed" nz-tooltip [nzTooltipTitle]="text.dueChanged">*</span>
+          }
+        </td>
+        <td>
+          <nz-tag [nzColor]="colors[o.displayStatus]">{{ labels[o.displayStatus] }}</nz-tag>
+          @if (o.filedLate) {
+            <nz-tag nzColor="orange">{{ text.filedLate }}</nz-tag>
+          }
+        </td>
+        @if (showCustomer()) {
+          <td>{{ o.customer.owner?.fullName ?? '—' }}</td>
+        }
+        <td>{{ o.tasks.length }}</td>
+      </tr>
+    }
+  </tbody>
+</nz-table>

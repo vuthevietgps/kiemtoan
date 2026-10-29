@@ -1,0 +1,52 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 575px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.check {
+  justify-content: flex-end;
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+fieldset {
+  margin: 0;
+  padding: 8px 12px 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+
+  legend {
+    width: auto;
+    margin: 0;
+    padding: 0 4px;
+    font-size: 13px;
+    color: rgba(0, 0, 0, 0.6);
+    border: 0;
+  }
+}
+
+nz-input-number,
+nz-date-picker {
+  width: 100%;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

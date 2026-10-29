@@ -1,0 +1,96 @@
+<nz-table [nzData]="steps()" [nzShowPagination]="false" [nzScroll]="{ x: '1090px' }" nzSize="small">
+  <thead>
+    <tr>
+      <th nzWidth="40px">{{ text.stepNo }}</th>
+      <th nzWidth="140px">{{ text.phase }}</th>
+      <th nzWidth="220px">{{ text.step }}</th>
+      <th nzWidth="100px">{{ mode() === 'PROJECT' ? text.duration : text.offset }}</th>
+      <th nzWidth="100px">{{ text.start }}</th>
+      <th nzWidth="100px">{{ text.due }}</th>
+      <th nzWidth="190px">{{ text.assignee }}</th>
+      <th nzWidth="190px">{{ text.reviewer }}</th>
+      <th nzWidth="70px">{{ text.skip }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    @for (s of steps(); track s.id; let i = $index) {
+      <tr [class.skipped]="value(s, 'skipped')">
+        <td>{{ i + 1 }}</td>
+        <td>{{ s.phase ?? '—' }}</td>
+        <td>
+          {{ s.name }}
+          @if (!s.required) {
+            <nz-tag>{{ text.optional }}</nz-tag>
+          }
+          @if (s.warning) {
+            <div class="warn">⚠ {{ s.warning }}</div>
+          }
+        </td>
+        <td>
+          @if (readonly()) {
+            {{ mode() === 'PROJECT' ? s.durationDays : s.dueOffsetDays }}
+          } @else if (mode() === 'PROJECT') {
+            <nz-input-number
+              [ngModel]="value(s, 'durationDays')"
+              (ngModelChange)="changed.emit({ stepKey: s.stepKey, durationDays: $event })"
+              [nzMin]="1"
+              [nzMax]="365"
+              [nzPrecision]="0"
+            />
+          } @else {
+            <nz-input-number
+              [ngModel]="value(s, 'dueOffsetDays')"
+              (ngModelChange)="changed.emit({ stepKey: s.stepKey, dueOffsetDays: $event })"
+              [nzMin]="-365"
+              [nzMax]="365"
+              [nzPrecision]="0"
+            />
+          }
+        </td>
+        @let d = dates(s);
+        <td [class.moved]="d.plannedStart !== s.plannedStart">
+          {{ d.plannedStart ? (d.plannedStart | date: 'dd/MM/yyyy' : 'UTC') : '—' }}
+        </td>
+        <td [class.moved]="d.dueDate !== s.dueDate">
+          {{ d.dueDate | date: 'dd/MM/yyyy' : 'UTC' }}
+        </td>
+        <td>
+          <nz-select
+            [ngModel]="value(s, 'assigneeId')"
+            (ngModelChange)="changed.emit({ stepKey: s.stepKey, assigneeId: $event ?? null })"
+            [nzDisabled]="readonly()"
+            nzAllowClear
+            nzShowSearch
+            [nzPlaceHolder]="text.byDefault"
+          >
+            @for (u of users(); track u.id) {
+              <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+            }
+          </nz-select>
+        </td>
+        <td>
+          <nz-select
+            [ngModel]="value(s, 'reviewerId')"
+            (ngModelChange)="changed.emit({ stepKey: s.stepKey, reviewerId: $event ?? null })"
+            [nzDisabled]="readonly()"
+            nzAllowClear
+            nzShowSearch
+            [nzPlaceHolder]="text.noReviewer"
+          >
+            @for (u of users(); track u.id) {
+              <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+            }
+          </nz-select>
+        </td>
+        <td>
+          <label
+            nz-checkbox
+            [ngModel]="value(s, 'skipped')"
+            (ngModelChange)="changed.emit({ stepKey: s.stepKey, skipped: $event })"
+            [nzDisabled]="readonly() || s.required"
+          ></label>
+        </td>
+      </tr>
+    }
+  </tbody>
+</nz-table>

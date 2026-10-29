@@ -1,0 +1,90 @@
+<app-page-header title="Nhật ký hoạt động" subtitle="Ai đã làm gì, lúc nào (chỉ xem, không sửa được)">
+  <button nz-button *appCan="'audit-log:export'" [nzLoading]="exporting()" (click)="export()">{{ text.exportAudit }}</button>
+</app-page-header>
+
+<div class="panel">
+  <div class="filters">
+    <nz-select
+      nzAllowClear
+      nzShowSearch
+      nzPlaceHolder="Tất cả người dùng"
+      [ngModel]="userId()"
+      (ngModelChange)="setFilter(userId, $event)"
+    >
+      @for (u of users.value() ?? []; track u.id) {
+        <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+      }
+    </nz-select>
+    <nz-select
+      nzAllowClear
+      nzPlaceHolder="Tất cả module"
+      [ngModel]="entity()"
+      (ngModelChange)="setFilter(entity, $event)"
+    >
+      @for (e of entities.value() ?? []; track e) {
+        <nz-option [nzValue]="e" [nzLabel]="entityLabel(e)" />
+      }
+    </nz-select>
+    <nz-select
+      nzAllowClear
+      nzPlaceHolder="Tất cả hành động"
+      [ngModel]="action()"
+      (ngModelChange)="setFilter(action, $event)"
+    >
+      @for (a of actions; track a.value) {
+        <nz-option [nzValue]="a.value" [nzLabel]="a.label" />
+      }
+    </nz-select>
+    <nz-range-picker
+      nzFormat="dd/MM/yyyy"
+      [ngModel]="range()"
+      (ngModelChange)="setFilter(range, $event)"
+    />
+  </div>
+
+  <nz-table
+    #t
+    [nzData]="logs.value()?.items ?? []"
+    [nzLoading]="logs.isLoading()"
+    [nzFrontPagination]="false"
+    [nzTotal]="logs.value()?.total ?? 0"
+    [nzPageIndex]="page()"
+    [nzPageSize]="pageSize()"
+    (nzPageIndexChange)="page.set($event)"
+    (nzPageSizeChange)="pageSize.set($event)"
+    nzShowSizeChanger
+    nzSize="middle"
+    [nzScroll]="{ x: '820px' }"
+    nzNoResult="Không có nhật ký"
+  >
+    <thead>
+      <tr>
+        <th nzWidth="160px">Thời gian</th>
+        <th>Người dùng</th>
+        <th nzWidth="130px">Hành động</th>
+        <th>Module</th>
+        <th>Mã bản ghi</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (log of t.data; track log.id) {
+        <tr>
+          <td>{{ log.createdAt | date: 'dd/MM/yyyy HH:mm:ss' }}</td>
+          <td>
+            @if (log.user) {
+              {{ log.user.fullName }}
+              <div class="text-muted">{{ log.user.email }}</div>
+            } @else {
+              <span class="text-muted">Hệ thống</span>
+            }
+          </td>
+          <td>
+            <nz-tag [nzColor]="actionOf(log.action).color">{{ actionOf(log.action).label }}</nz-tag>
+          </td>
+          <td>{{ entityLabel(log.entity) }}</td>
+          <td><code>{{ log.entityId ?? '—' }}</code></td>
+        </tr>
+      }
+    </tbody>
+  </nz-table>
+</div>

@@ -1,0 +1,112 @@
+// Module: notifications (đặc tả 06-C — nhắc việc theo lịch, email, chống gửi trùng)
+
+enum NotificationKind {
+  GENERAL // Sự kiện thường (giao việc, gửi kiểm tra…)
+  DUE_REMINDER // Nhắc trước hạn / đúng hạn (I9)
+  OVERDUE // Quá hạn
+  ESCALATION // Leo thang quá hạn lên quản lý
+  REVIEW_SLA // Soát xét quá SLA (I13)
+  REVIEW_SLA_ESCALATION
+  DIGEST // Bản tin buổi sáng
+}
+
+enum NotificationSeverity {
+  INFO
+  WARNING
+  DANGER // Đỏ: quá hạn, leo thang
+}
+
+enum DeliveryChannel {
+  IN_APP
+  EMAIL
+}
+
+enum DeliveryStatus {
+  PENDING // Chờ gửi / chờ thử lại
+  SENDING // Đang gửi (bị kẹt quá 10 phút thì nhận lại)
+  SENT
+  FAILED // Hết số lần thử
+  SKIPPED // Không gửi (chưa cấu hình SMTP, người nhận không có email)
+  CANCELLED // Hạn đã đổi trước khi gửi
+}
+
+// Mỗi lần gửi một mốc nhắc cho một người qua một kênh (I12). Khoá duy nhất chống gửi trùng khi chạy
+// lại/khởi động lại/hai tiến trình: (đối tượng, mốc, hạn tại thời điểm, kênh, người nhận).
+model NotificationDelivery {
+  id             String               @id @default(uuid()) @db.Uuid
+  subjectType    String               @map("subject_type") // TASK | OBLIGATION | USER
+  subjectId      String               @map("subject_id") @db.Uuid
+  milestone      String
+  dueKey         DateTime             @map("due_key") @db.Date
+  channel        DeliveryChannel
+  userId         String               @map("user_id") @db.Uuid
+  kind           NotificationKind
+  severity       NotificationSeverity @default(INFO)
+  title          String
+  body           String?
+  link           String?
+  status         DeliveryStatus       @default(PENDING)
+  attempts       Int                  @default(0)
+  nextAttemptAt  DateTime?            @map("next_attempt_at") @db.Timestamptz
+  lastError      String?              @map("last_error")
+  sentAt         DateTime?            @map("sent_at") @db.Timestamptz
+  notificationId String?              @map("notification_id") @db.Uuid
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([subjectType, subjectId, milestone, dueKey, channel, userId])
+  @@index([status, nextAttemptAt])
+  @@index([createdAt])
+  @@map("notification_deliveries")
+}
+
+// Tuỳ chọn nhận thông báo của từng người (I10). Không có dòng = mặc định bật.
+model NotificationPreference {
+  userId        String   @id @map("user_id") @db.Uuid
+  emailEnabled  Boolean  @default(true) @map("email_enabled")
+  digestEnabled Boolean  @default(true) @map("digest_enabled")
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notification_preferences")
+}
+
+// Cấu hình nhắc việc (I9, I11): một dòng id = 1, ghi audit trước–sau.
+model ReminderSetting {
+  id                    Int      @id @default(1)
+  /// Ngưỡng mức gấp/mốc nhắc trước hạn (ngày), giảm dần, ví dụ [7, 3, 1].
+  thresholds            Int[]
+  /// Giờ gửi theo giờ Việt Nam 'HH:mm'.
+  sendTime              String   @map("send_time")
+  /// Quá hạn bao nhiêu ngày làm việc thì báo quản lý.
+  escalationWorkingDays Int      @map("escalation_working_days")
+  revision              Int      @default(1)
+  updatedById           String?  @map("updated_by_id") @db.Uuid
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("reminder_settings")
+}
+
+// Ngưỡng mức gấp riêng theo dịch vụ (I11), ví dụ quyết toán năm 15/7/3.
+model ServiceUrgencyThreshold {
+  serviceTypeId String   @id @map("service_type_id") @db.Uuid
+  thresholds    Int[]
+  updatedById   String?  @map("updated_by_id") @db.Uuid
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  serviceType ServiceType @relation(fields: [serviceTypeId], references: [id], onDelete: Cascade)
+
+  @@map("service_urgency_thresholds")
+}
+
+// Khoá thuê để chỉ một tiến trình chạy tác vụ định kỳ (I12); hết hạn thì tiến trình khác nhận.
+model SchedulerLease {
+  name        String   @id
+  owner       String
+  lockedUntil DateTime @map("locked_until") @db.Timestamptz
+
+  @@map("scheduler_leases")
+}

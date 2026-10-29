@@ -1,0 +1,138 @@
+<form nz-form nzLayout="vertical" [formGroup]="form" (ngSubmit)="submit()">
+  <div class="grid">
+    <nz-form-item>
+      <nz-form-label>{{ text.phase }}</nz-form-label>
+      <nz-form-control><input nz-input formControlName="phase" maxlength="100" /></nz-form-control>
+    </nz-form-item>
+    <nz-form-item>
+      <nz-form-label nzRequired>{{ text.stepName }}</nz-form-label>
+      <nz-form-control [nzErrorTip]="text.stepNameError"><input nz-input formControlName="name" /></nz-form-control>
+    </nz-form-item>
+    @if (mode() === 'PROJECT') {
+      <nz-form-item>
+        <nz-form-label nzRequired>{{ text.duration }}</nz-form-label>
+        <nz-form-control><nz-input-number formControlName="durationDays" [nzMin]="1" [nzMax]="365" [nzPrecision]="0" /></nz-form-control>
+      </nz-form-item>
+    } @else {
+      <nz-form-item>
+        <nz-form-label nzRequired>{{ text.dueOffset }}</nz-form-label>
+        <nz-form-control><nz-input-number formControlName="dueOffsetDays" [nzMin]="-365" [nzMax]="365" [nzPrecision]="0" /></nz-form-control>
+      </nz-form-item>
+    }
+    <nz-form-item>
+      <nz-form-label>{{ text.performer }}</nz-form-label>
+      <nz-form-control>
+        <nz-select formControlName="performerRole" nzAllowClear>
+          @for (o of roleOptions; track o.value) {
+            <nz-option [nzValue]="o.value" [nzLabel]="o.label" />
+          }
+        </nz-select>
+      </nz-form-control>
+    </nz-form-item>
+    <nz-form-item>
+      <nz-form-label>{{ text.reviewLevels }}</nz-form-label>
+      <nz-form-control><nz-input-number formControlName="reviewLevels" [nzMin]="0" [nzMax]="2" [nzPrecision]="0" /></nz-form-control>
+    </nz-form-item>
+    <nz-form-item>
+      <nz-form-label>{{ text.reviewer }}</nz-form-label>
+      <nz-form-control>
+        <nz-select formControlName="reviewerRole" nzAllowClear>
+          @for (o of roleOptions; track o.value) {
+            <nz-option [nzValue]="o.value" [nzLabel]="o.label" />
+          }
+        </nz-select>
+      </nz-form-control>
+    </nz-form-item>
+  </div>
+
+  <div class="grid">
+    <nz-form-item>
+      <nz-form-label>{{ text.defaultAssignee }}</nz-form-label>
+      <nz-form-control>
+        <nz-select formControlName="defaultAssigneeId" nzAllowClear nzShowSearch [nzPlaceHolder]="text.byContract">
+          @for (u of users(); track u.id) {
+            <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+          }
+        </nz-select>
+      </nz-form-control>
+    </nz-form-item>
+    @if (form.controls.reviewLevels.value > 0) {
+      <nz-form-item>
+        <nz-form-label>{{ text.defaultReviewer }}</nz-form-label>
+        <nz-form-control>
+        <nz-select formControlName="defaultReviewerId" nzAllowClear nzShowSearch [nzPlaceHolder]="text.byRole">
+          @for (u of users(); track u.id) {
+            <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+          }
+        </nz-select>
+        </nz-form-control>
+      </nz-form-item>
+    }
+    @if (form.controls.reviewLevels.value > 1) {
+      <nz-form-item>
+        <nz-form-label>{{ text.defaultApprover }}</nz-form-label>
+        <nz-form-control>
+        <nz-select formControlName="defaultApproverId" nzAllowClear nzShowSearch [nzPlaceHolder]="text.byRole">
+          @for (u of users(); track u.id) {
+            <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+          }
+        </nz-select>
+        </nz-form-control>
+      </nz-form-item>
+    }
+  </div>
+
+  <nz-form-item>
+    <nz-form-label>{{ text.dependsOn }}</nz-form-label>
+    <nz-form-control>
+      <nz-select formControlName="dependsOn" nzMode="multiple">
+        @for (o of others(); track o.key) {
+          <nz-option [nzValue]="o.key" [nzLabel]="o.key + ' — ' + o.name" />
+        }
+      </nz-select>
+    </nz-form-control>
+  </nz-form-item>
+  @if (previous()) {
+    <button nz-button nzType="dashed" type="button" (click)="parallelWithPrevious()" style="margin-bottom: 16px">{{ text.parallel }}</button>
+  }
+
+  <div class="grid">
+    <nz-form-item>
+      <nz-form-control><label nz-checkbox formControlName="required">{{ text.required }}</label></nz-form-control>
+    </nz-form-item>
+    <nz-form-item>
+      <nz-form-control><label nz-checkbox formControlName="requiresEvidence">{{ text.evidence }}</label></nz-form-control>
+    </nz-form-item>
+    <nz-form-item>
+      <nz-form-control><label nz-checkbox formControlName="isStatutory">{{ text.statutory }}</label></nz-form-control>
+    </nz-form-item>
+    <nz-form-item>
+      <nz-form-control><label nz-checkbox formControlName="requiresDelivery">{{ text.delivery }}</label></nz-form-control>
+    </nz-form-item>
+  </div>
+  @if (form.controls.isStatutory.value) {
+    <nz-form-item>
+      <nz-form-label>{{ text.obligationType }}</nz-form-label>
+      <nz-form-control>
+        <nz-select formControlName="obligationTypeId" nzAllowClear nzShowSearch [nzPlaceHolder]="text.noObligationType">
+          @for (o of obligationTypes(); track o.id) {
+            <nz-option [nzValue]="o.id" [nzLabel]="o.code + ' — ' + o.name" />
+          }
+        </nz-select>
+      </nz-form-control>
+    </nz-form-item>
+  }
+  <nz-form-item>
+    <nz-form-label>{{ text.evidenceHint }}</nz-form-label>
+    <nz-form-control><input nz-input formControlName="evidenceHint" maxlength="200" /></nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <nz-form-label>{{ text.instructions }}</nz-form-label>
+    <nz-form-control><textarea nz-input formControlName="instructions" rows="3" maxlength="2000"></textarea></nz-form-control>
+  </nz-form-item>
+
+  <div class="text-right">
+    <button nz-button type="button" (click)="cancelled.emit()">{{ text.cancel }}</button>
+    <button nz-button nzType="primary" type="submit" style="margin-left: 8px">{{ text.save }}</button>
+  </div>
+</form>

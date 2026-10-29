@@ -1,0 +1,99 @@
+<app-page-header title="Quản lý hoá đơn" subtitle="Đề nghị xuất hoá đơn được tạo từ trang chi tiết hợp đồng" />
+
+<div class="panel">
+  <div class="filters">
+    <input
+      nz-input
+      placeholder="Số hoá đơn, mã HĐ, khách hàng"
+      [(ngModel)]="search"
+      (keyup.enter)="applyFilter()"
+    />
+    <nz-select nzPlaceHolder="Tất cả trạng thái" nzAllowClear [(ngModel)]="status" (ngModelChange)="applyFilter()">
+      @for (o of statusOptions; track o.value) {
+        <nz-option [nzValue]="o.value" [nzLabel]="o.label" />
+      }
+    </nz-select>
+    <button nz-button (click)="applyFilter()"><nz-icon nzType="search" /> Tìm</button>
+  </div>
+
+  <nz-table
+    #table
+    [nzData]="items()"
+    [nzLoading]="loading()"
+    [nzFrontPagination]="false"
+    [nzTotal]="total()"
+    [nzPageIndex]="page()"
+    [nzPageSize]="pageSize()"
+    [nzScroll]="{ x: '1100px' }"
+    nzSize="middle"
+    (nzQueryParams)="onQueryParams($event)"
+  >
+    <thead>
+      <tr>
+        <th nzWidth="150px">Ký hiệu / Số</th>
+        <th nzWidth="110px">Ngày PH</th>
+        <th nzWidth="130px">Hợp đồng</th>
+        <th>Khách hàng</th>
+        <th nzWidth="140px" class="text-right">Trước VAT</th>
+        <th nzWidth="140px" class="text-right">Tổng tiền</th>
+        <th nzWidth="130px">Trạng thái</th>
+        <th nzWidth="150px">Người đề nghị</th>
+        <th nzWidth="160px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (inv of table.data; track inv.id) {
+        <tr>
+          <td>{{ inv.symbol ? inv.symbol + ' / ' + inv.number : '—' }}</td>
+          <td>{{ (inv.issueDate | date: 'dd/MM/yyyy') ?? '—' }}</td>
+          <td><a [routerLink]="['/contracts', inv.contract.id]">{{ inv.contract.code }}</a></td>
+          <td>
+            {{ inv.contract.customer.name }}
+            @if (inv.note) {
+              <div class="text-muted">{{ inv.note }}</div>
+            }
+          </td>
+          <td class="text-right">{{ inv.subtotal | vnd }}</td>
+          <td class="text-right">{{ inv.total | vnd }}</td>
+          <td>
+            <nz-tag [nzColor]="statusColors[inv.status]">{{ statusLabels[inv.status] }}</nz-tag>
+          </td>
+          <td>{{ inv.requestedBy.fullName }}</td>
+          <td>
+            <ng-container *appCan="'invoices:update'">
+              @if (inv.status === 'REQUESTED') {
+                <button nz-button nzType="link" nzSize="small" (click)="issuing.set(inv)">Phát hành</button>
+              }
+              @if (inv.status !== 'CANCELLED') {
+                <button
+                  nz-button
+                  nzType="link"
+                  nzSize="small"
+                  nzDanger
+                  nz-popconfirm
+                  nzPopconfirmTitle="Huỷ hoá đơn này?"
+                  (nzOnConfirm)="cancel(inv)"
+                >
+                  Huỷ
+                </button>
+              }
+            </ng-container>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </nz-table>
+</div>
+
+<nz-modal
+  [nzVisible]="!!issuing()"
+  [nzTitle]="'Phát hành hoá đơn — ' + (issuing()?.contract?.code ?? '')"
+  [nzFooter]="null"
+  (nzOnCancel)="issuing.set(null)"
+>
+  <ng-container *nzModalContent>
+    @if (issuing(); as inv) {
+      <app-invoice-issue-form [invoiceId]="inv.id" (saved)="onIssued()" (cancelled)="issuing.set(null)" />
+    }
+  </ng-container>
+</nz-modal>

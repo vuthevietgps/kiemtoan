@@ -1,0 +1,80 @@
+<nz-table [nzData]="steps()" [nzShowPagination]="false" [nzScroll]="{ x: '1100px' }" nzSize="small">
+  <thead>
+    <tr>
+      <th nzWidth="50px">{{ text.stepNo }}</th>
+      <th nzWidth="150px">{{ text.phase }}</th>
+      <th nzWidth="240px">{{ text.stepName }}</th>
+      <th nzWidth="110px">{{ mode() === 'PROJECT' ? text.duration : text.dueOffset }}</th>
+      <th nzWidth="170px">{{ text.performer }}</th>
+      <th nzWidth="170px">{{ text.reviewer }}</th>
+      <th nzWidth="200px">{{ text.dependsOn }}</th>
+      <th nzWidth="150px"></th>
+    </tr>
+  </thead>
+  <tbody cdkDropList [cdkDropListDisabled]="readonly()" (cdkDropListDropped)="dropped($event)">
+    @for (step of steps(); track step.key; let i = $index; let first = $first; let last = $last) {
+      <tr cdkDrag [cdkDragDisabled]="readonly()">
+        <td>
+          @if (!readonly()) {
+            <nz-icon nzType="unordered-list" cdkDragHandle class="drag-handle" [attr.aria-label]="text.dragHint" />
+          }
+          {{ i + 1 }}
+        </td>
+        <td>{{ step.phase ?? text.none }}</td>
+        <td>
+          {{ step.name }}
+          @if (!step.required) {
+            <nz-tag>{{ text.optional }}</nz-tag>
+          }
+          @if (step.requiresEvidence) {
+            <div class="text-muted">{{ text.evidence }}</div>
+          }
+        </td>
+        <td>
+          @if (mode() === 'PROJECT') {
+            {{ step.durationDays ?? text.none }}
+          } @else {
+            {{ step.dueOffsetDays ?? text.none }}
+          }
+        </td>
+        <td>
+          {{ step.performerRole ? roleLabels[step.performerRole] : text.none }}
+          @if (step.defaultAssigneeId) {
+            <div class="text-muted">{{ userNames().get(step.defaultAssigneeId) ?? step.defaultAssigneeId }}</div>
+          }
+        </td>
+        <td>
+          @if (step.reviewLevels > 0) {
+            {{ step.reviewerRole ? roleLabels[step.reviewerRole] : text.none }} ({{ step.reviewLevels }})
+            @if (step.defaultReviewerId) {
+              <div class="text-muted">{{ userNames().get(step.defaultReviewerId) ?? step.defaultReviewerId }}</div>
+            }
+          } @else {
+            {{ text.none }}
+          }
+        </td>
+        <td>
+          @for (dep of step.dependsOn; track dep) {
+            <div>{{ names().get(dep) ?? dep }}</div>
+          } @empty {
+            {{ text.none }}
+          }
+        </td>
+        <td>
+          @if (!readonly()) {
+            <button nz-button nzType="text" nzSize="small" [attr.aria-label]="text.moveUp" [disabled]="first" (click)="move.emit({ key: step.key, delta: -1 })">
+              <nz-icon nzType="arrow-up" />
+            </button>
+            <button nz-button nzType="text" nzSize="small" [attr.aria-label]="text.moveDown" [disabled]="last" (click)="move.emit({ key: step.key, delta: 1 })">
+              <nz-icon nzType="arrow-down" />
+            </button>
+            <button nz-button nzType="link" nzSize="small" (click)="edit.emit(step.key)">{{ text.edit }}</button>
+            <button nz-button nzType="text" nzDanger nzSize="small" [attr.aria-label]="text.remove" (click)="remove.emit(step.key)">
+              <nz-icon nzType="delete" />
+            </button>
+          }
+        </td>
+      </tr>
+    }
+  </tbody>
+</nz-table>

@@ -1,0 +1,46 @@
+<app-page-header [title]="text.title" [subtitle]="text.subtitle" />
+
+<app-calendar-filters
+  [filters]="store.filters()"
+  [customers]="store.customers()"
+  [users]="store.users()"
+  [types]="store.types()"
+  [showUser]="store.canFilterUser()"
+  [showTypes]="store.canSeeObligations()"
+  (filtersChange)="onFilters($event)"
+/>
+
+@if (unconfirmed()) {
+  <nz-alert class="notice" nzType="warning" nzShowIcon [nzMessage]="text.unconfirmedYear(unconfirmed())" />
+}
+@if (store.result().truncated) {
+  <nz-alert class="notice" nzType="info" nzShowIcon [nzMessage]="text.truncated" />
+}
+@if (store.error()) {
+  <nz-alert class="notice" nzType="error" nzShowIcon [nzMessage]="store.error()" />
+}
+
+<div class="legend">
+  <span><i class="swatch statutory"></i> {{ text.legendStatutory }}</span>
+  <span><i class="swatch internal"></i> {{ text.legendInternal }}</span>
+  <span><i class="swatch overdue"></i> {{ text.legendOverdue }}</span>
+  <span><i class="swatch near"></i> {{ text.legendNear }}</span>
+  <span><i class="swatch priority"></i> {{ text.legendPriority }}</span>
+  <span><i class="swatch soon"></i> {{ text.legendSoon }}</span>
+  <span><i class="swatch done"></i> {{ text.legendDone }}</span>
+  <span><i class="swatch off"></i> {{ text.legendDayOff }}</span>
+</div>
+
+<div class="panel">
+  <nz-spin [nzSpinning]="store.loading()">
+    <full-calendar [options]="options()" />
+  </nz-spin>
+</div>
+
+<app-calendar-event-drawer
+  [event]="selected()"
+  (closed)="selected.set(null)"
+  (openTask)="openTask($event)"
+  (openCustomer)="openCustomer($event)"
+  (openObligation)="openObligation($event)"
+/>

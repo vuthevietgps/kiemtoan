@@ -1,0 +1,520 @@
+// Module: contracts, payments, invoices
+
+enum ContractStatus {
+  DRAFT // Nháp
+  PENDING_APPROVAL // Chờ duyệt
+  NOT_STARTED // Chưa thực hiện
+  IN_PROGRESS // Đang thực hiện
+  COMPLETED // Đã hoàn thành
+  LIQUIDATED // Thanh lý
+  CANCELLED // Huỷ
+}
+
+model Contract {
+  id             String         @id @default(uuid()) @db.Uuid
+  code           String         @unique // HD-2025-015
+  customerId     String         @map("customer_id") @db.Uuid
+  ownerId        String?        @map("owner_id") @db.Uuid
+  signedDate     DateTime?      @map("signed_date") @db.Date
+  startDate      DateTime       @map("start_date") @db.Date
+  endDate        DateTime?      @map("end_date") @db.Date
+  vatRate        Decimal        @default(10) @map("vat_rate") @db.Decimal(5, 2)
+  subtotal       Decimal        @default(0) @db.Decimal(18, 2) // trước VAT
+  vatAmount      Decimal        @default(0) @map("vat_amount") @db.Decimal(18, 2)
+  total          Decimal        @default(0) @db.Decimal(18, 2) // tổng thanh toán
+  status         ContractStatus @default(DRAFT)
+  note           String?
+  approvedById   String?        @map("approved_by_id") @db.Uuid
+  approvedAt     DateTime?      @map("approved_at") @db.Timestamptz
+  // Lần trả lại gần nhất (Chờ duyệt → Nháp); lịch sử đầy đủ ở audit log.
+  returnedReason String?        @map("returned_reason")
+  returnedAt     DateTime?      @map("returned_at") @db.Timestamptz
+  // Thông tin kinh doanh (E5): người phụ trách kinh doanh là tài khoản nội bộ (kiểm tra ở service,
+  // không khoá ngoại sang module users); người giới thiệu là người ngoài. Chưa tính hoa hồng (QD06).
+  salesOwnerId   String?        @map("sales_owner_id") @db.Uuid
+  referrerName   String?        @map("referrer_name")
+  referrerPhone  String?        @map("referrer_phone")
+  referrerNote   String?        @map("referrer_note")
+  // Gia hạn/tái ký (04-D): HĐ năm sau trỏ về HĐ gốc.
+  renewedFromId  String?        @map("renewed_from_id") @db.Uuid
+  cancelReason   String?        @map("cancel_reason")
+  cancelledAt    DateTime?      @map("cancelled_at") @db.Timestamptz
+  cancelledById  String?        @map("cancelled_by_id") @db.Uuid
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz
+
+  customer            Customer             @relation(fields: [customerId], references: [id])
+  owner               User?                @relation("ContractOwner", fields: [ownerId], references: [id])
+  approvedBy          User?                @relation("ContractApprover", fields: [approvedById], references: [id])
+  services            ContractService[]
+  installments        PaymentInstallment[]
+  payments            Payment[]
+  invoices            Invoice[]
+  tasks               Task[]
+  documents           Document[]
+  commercialDocuments ContractDocument[]
+  amendments          ContractAmendment[]
+  renewedFrom         Contract?            @relation("ContractRenewal", fields: [renewedFromId], references: [id])
+  renewals            Contract[]           @relation("ContractRenewal")
+
+  // Tình trạng hồ sơ HĐ (04-F): gửi khách, lưu bản gốc, biên bản nghiệm thu.
+  clientDeliveryStatus ClientDeliveryStatus @default(NOT_SENT) @map("client_delivery_status")
+  clientDeliveredAt    DateTime?            @map("client_delivered_at") @db.Date
+  originalFilingStatus OriginalFilingStatus @default(NOT_FILED) @map("original_filing_status")
+  originalFiledAt      DateTime?            @map("original_filed_at") @db.Date
+  originalFilingNote   String?              @map("original_filing_note")
+  acceptanceStatus     AcceptanceStatus     @default(NONE) @map("acceptance_status")
+  acceptanceSignedAt   DateTime?            @map("acceptance_signed_at") @db.Date
+  acceptanceDocumentId String?              @map("acceptance_document_id") @db.Uuid
+  dossierRevision      Int                  @default(1) @map("dossier_revision")
+  acceptanceDocument   ContractDocument?    @relation("ContractAcceptanceDocument", fields: [acceptanceDocumentId], references: [id])
+
+  @@index([customerId])
+  @@index([ownerId])
+  @@index([status])
+  @@index([endDate])
+  @@index([renewedFromId])
+  @@index([salesOwnerId])
+  @@map("contracts")
+}
+
+// Trạng thái sinh việc của một dòng dịch vụ (đặc tả 04-A): lỗi không bị nuốt, sinh lại được.
+enum TaskGenerationStatus {
+  PENDING // Chưa sinh
+  GENERATING // Đang sinh (khoá chống chạy trùng)
+  DONE // Đã sinh
+  SKIPPED // Bỏ qua: dịch vụ chưa có quy trình đang hiệu lực
+  FAILED // Lỗi khi sinh
+}
+
+enum ServiceStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+// Một dòng dịch vụ trong hợp đồng = một đơn vị theo dõi tiến độ.
+model ContractService {
+  id                      String               @id @default(uuid()) @db.Uuid
+  contractId              String               @map("contract_id") @db.Uuid
+  serviceTypeId           String               @map("service_type_id") @db.Uuid
+  description             String?
+  period                  String? // kỳ áp dụng, ví dụ "2025-10" hoặc "2025"
+  quantity                Int                  @default(1)
+  unitPrice               Decimal              @map("unit_price") @db.Decimal(18, 2)
+  amount                  Decimal              @db.Decimal(18, 2)
+  status                  ServiceStatus        @default(NOT_STARTED)
+  assigneeId              String?              @map("assignee_id") @db.Uuid
+  taskGenerationStatus    TaskGenerationStatus @default(PENDING) @map("task_generation_status")
+  taskGenerationMessage   String?              @map("task_generation_message")
+  taskGenerationStartedAt DateTime?            @map("task_generation_started_at") @db.Timestamptz
+  tasksGeneratedAt        DateTime?            @map("tasks_generated_at") @db.Timestamptz
+
+  contract    Contract             @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  serviceType ServiceType          @relation(fields: [serviceTypeId], references: [id])
+  assignee    User?                @relation("ServiceAssignee", fields: [assigneeId], references: [id])
+  tasks       Task[]
+  plan        ContractServicePlan?
+  audit       AuditEngagement?
+  team        ServiceTeam?
+
+  @@index([contractId])
+  @@index([assigneeId])
+  @@map("contract_services")
+}
+
+/// 07 J10: quy tắc hạn của đợt thu.
+enum InstallmentDueRule {
+  FIXED_DATE // Theo ngày cố định
+  AFTER_REPORT_ISSUE // N ngày sau khi phát hành BCKT
+}
+
+model PaymentInstallment {
+  id            String             @id @default(uuid()) @db.Uuid
+  contractId    String             @map("contract_id") @db.Uuid
+  name          String // Tạm ứng, Đợt 2...
+  amount        Decimal            @db.Decimal(18, 2)
+  dueDate       DateTime           @map("due_date") @db.Date
+  sortOrder     Int                @default(0) @map("sort_order")
+  /// 07 J10: hạn theo ngày cố định hoặc N ngày sau phát hành BCKT của HĐ (due_date = ngày dự kiến khi chưa phát hành).
+  dueRule       InstallmentDueRule @default(FIXED_DATE) @map("due_rule")
+  dueOffsetDays Int?               @map("due_offset_days")
+  /// Ngày phát hành BCKT dùng tính hạn; null = Chờ phát hành.
+  milestoneDate DateTime?          @map("milestone_date") @db.Date
+
+  contract    Contract            @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  payments    Payment[]
+  allocations PaymentAllocation[]
+
+  @@index([contractId])
+  @@map("payment_installments")
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+}
+
+/// 07 (J1–J5): Nháp → Chờ duyệt → Đã duyệt; Trả lại (sửa, gửi lại); Đã huỷ (rút khi chưa duyệt / huỷ có lý do khi đã duyệt).
+enum PaymentStatus {
+  DRAFT // Nháp
+  PENDING // Chờ duyệt
+  RETURNED // Trả lại
+  APPROVED // Đã duyệt — chỉ trạng thái này tính đã thu
+  CANCELLED // Đã huỷ
+}
+
+model Payment {
+  id             String        @id @default(uuid()) @db.Uuid
+  code           String        @unique // PT-2025-001
+  contractId     String        @map("contract_id") @db.Uuid
+  installmentId  String?       @map("installment_id") @db.Uuid
+  amount         Decimal       @db.Decimal(18, 2)
+  paidDate       DateTime      @map("paid_date") @db.Date
+  method         PaymentMethod @default(BANK_TRANSFER)
+  note           String?
+  receivedById   String        @map("received_by_id") @db.Uuid
+  status         PaymentStatus @default(DRAFT)
+  /// Số phiếu thu giấy / mã giao dịch ngân hàng (J8).
+  documentNumber String?       @map("document_number")
+  submittedAt    DateTime?     @map("submitted_at") @db.Timestamptz
+  approvedById   String?       @map("approved_by_id") @db.Uuid
+  approvedAt     DateTime?     @map("approved_at") @db.Timestamptz
+  returnReason   String?       @map("return_reason")
+  cancelReason   String?       @map("cancel_reason")
+  cancelledById  String?       @map("cancelled_by_id") @db.Uuid
+  cancelledAt    DateTime?     @map("cancelled_at") @db.Timestamptz
+  /// Dữ liệu trước 07-C: chuyển thành Đã duyệt, không có người duyệt (J15).
+  migrated       Boolean       @default(false)
+  revision       Int           @default(1)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime?     @map("deleted_at") @db.Timestamptz
+
+  contract    Contract            @relation(fields: [contractId], references: [id])
+  installment PaymentInstallment? @relation(fields: [installmentId], references: [id])
+  receivedBy  User                @relation(fields: [receivedById], references: [id])
+  allocations PaymentAllocation[]
+  events      PaymentEvent[]
+  documents   PaymentDocument[]
+
+  @@index([contractId])
+  @@index([paidDate])
+  @@index([status])
+  @@map("payments")
+}
+
+/// 07: lịch sử phiếu thu — tạo, gửi duyệt, trả lại, duyệt, rút/huỷ; không sửa/xoá.
+model PaymentEvent {
+  id         String         @id @default(uuid()) @db.Uuid
+  paymentId  String         @map("payment_id") @db.Uuid
+  fromStatus PaymentStatus? @map("from_status")
+  toStatus   PaymentStatus  @map("to_status")
+  note       String?
+  actorId    String?        @map("actor_id") @db.Uuid
+  occurredAt DateTime       @default(now()) @map("occurred_at") @db.Timestamptz
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId, occurredAt])
+  @@map("payment_events")
+}
+
+/// 07 (J8): chứng từ của phiếu thu — tài liệu kho hồ sơ 02; một file dùng được cho nhiều phiếu (J6).
+model PaymentDocument {
+  paymentId  String   @map("payment_id") @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  payment  Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id])
+
+  @@id([paymentId, documentId])
+  @@index([documentId])
+  @@map("payment_documents")
+}
+
+/// 07 (J4): phân bổ tiền của phiếu thu vào đợt — lưu lại, mọi màn hình/báo cáo đọc cùng một nguồn.
+/// Tính lại toàn HĐ (xác định theo thứ tự phiếu) mỗi khi phiếu hoặc lịch đợt thay đổi.
+model PaymentAllocation {
+  id            String   @id @default(uuid()) @db.Uuid
+  paymentId     String   @map("payment_id") @db.Uuid
+  installmentId String   @map("installment_id") @db.Uuid
+  amount        Decimal  @db.Decimal(18, 2)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  payment     Payment            @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  installment PaymentInstallment @relation(fields: [installmentId], references: [id], onDelete: Cascade)
+
+  @@unique([paymentId, installmentId])
+  @@index([installmentId])
+  @@map("payment_allocations")
+}
+
+enum InvoiceStatus {
+  REQUESTED // Đề nghị xuất
+  ISSUED // Đã phát hành
+  CANCELLED // Huỷ
+}
+
+model Invoice {
+  id            String        @id @default(uuid()) @db.Uuid
+  contractId    String        @map("contract_id") @db.Uuid
+  number        String? // số hoá đơn
+  symbol        String? // ký hiệu
+  issueDate     DateTime?     @map("issue_date") @db.Date
+  subtotal      Decimal       @db.Decimal(18, 2)
+  vatAmount     Decimal       @map("vat_amount") @db.Decimal(18, 2)
+  total         Decimal       @db.Decimal(18, 2)
+  status        InvoiceStatus @default(REQUESTED)
+  note          String?
+  requestedById String        @map("requested_by_id") @db.Uuid
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  contract    Contract @relation(fields: [contractId], references: [id])
+  requestedBy User     @relation(fields: [requestedById], references: [id])
+
+  @@index([contractId])
+  @@map("invoices")
+}
+
+// Kế hoạch thực hiện của một dòng dịch vụ (đặc tả 04-B, PL1 III.1): chọn phiên bản quy trình,
+// rà soát người/thời lượng rồi xác nhận. Việc chỉ sinh khi HĐ đã duyệt và kế hoạch đã xác nhận (E1).
+enum ContractPlanStatus {
+  DRAFT // Đang rà soát
+  CONFIRMED // Đã xác nhận, khoá
+}
+
+model ContractServicePlan {
+  id                String               @id @default(uuid()) @db.Uuid
+  contractServiceId String               @unique @map("contract_service_id") @db.Uuid
+  // Phiên bản quy trình gốc (id, không khoá ngoại sang service-catalog; nội dung đã chụp vào bước).
+  workflowVersionId String?              @map("workflow_version_id") @db.Uuid
+  workflowCode      String?              @map("workflow_code")
+  workflowVersionNo Int?                 @map("workflow_version_no")
+  scheduleMode      WorkflowScheduleMode @default(PERIODIC) @map("schedule_mode")
+  startDate         DateTime             @map("start_date") @db.Date
+  period            String
+  status            ContractPlanStatus   @default(DRAFT)
+  revision          Int                  @default(1)
+  note              String?
+  confirmedById     String?              @map("confirmed_by_id") @db.Uuid
+  confirmedAt       DateTime?            @map("confirmed_at") @db.Timestamptz
+  createdById       String?              @map("created_by_id") @db.Uuid
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  contractService ContractService           @relation(fields: [contractServiceId], references: [id], onDelete: Cascade)
+  steps           ContractPlanStep[]
+  requirements    ContractPlanRequirement[]
+
+  @@index([status])
+  @@map("contract_service_plans")
+}
+
+// Bản chụp một bước quy trình trong kế hoạch; bước tuỳ chọn có thể bỏ qua.
+model ContractPlanStep {
+  id               String    @id @default(uuid()) @db.Uuid
+  planId           String    @map("plan_id") @db.Uuid
+  stepKey          String    @map("step_key")
+  sortOrder        Int       @map("sort_order")
+  phase            String?
+  name             String
+  required         Boolean   @default(true)
+  skipped          Boolean   @default(false)
+  durationDays     Int?      @map("duration_days")
+  dueOffsetDays    Int?      @map("due_offset_days")
+  dependsOn        String[]  @map("depends_on")
+  plannedStart     DateTime? @map("planned_start") @db.Date
+  dueDate          DateTime  @map("due_date") @db.Date
+  requiresEvidence Boolean   @default(true) @map("requires_evidence")
+  reviewLevels     Int       @default(0) @map("review_levels")
+  reviewerRole     Role?     @map("reviewer_role")
+  assigneeId       String?   @map("assignee_id") @db.Uuid
+  reviewerId       String?   @map("reviewer_id") @db.Uuid
+  approverId       String?   @map("approver_id") @db.Uuid
+  isStatutory      Boolean   @default(false) @map("is_statutory")
+  requiresDelivery Boolean   @default(false) @map("requires_delivery")
+  obligationTypeId String?   @map("obligation_type_id") @db.Uuid
+  sourceStepId     String?   @map("source_step_id") @db.Uuid
+
+  plan           ContractServicePlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  obligationType ObligationType?     @relation(fields: [obligationTypeId], references: [id])
+  tasks          Task[]
+
+  @@unique([planId, stepKey])
+  @@unique([planId, sortOrder])
+  @@map("contract_plan_steps")
+}
+
+// Bản chụp hồ sơ yêu cầu (03-C) để 05 sinh danh sách hồ sơ cần thu của khách hàng.
+model ContractPlanRequirement {
+  id           String           @id @default(uuid()) @db.Uuid
+  planId       String           @map("plan_id") @db.Uuid
+  sortOrder    Int              @map("sort_order")
+  name         String
+  instructions String?
+  required     Boolean          @default(true)
+  category     DocumentCategory @default(SERVICE)
+  perPeriod    Boolean          @default(false) @map("per_period")
+  stepKey      String?          @map("step_key")
+
+  plan ContractServicePlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, sortOrder])
+  @@map("contract_plan_requirements")
+}
+
+// Hồ sơ thương mại (đặc tả 04-C, C7/C8): loại mẫu Word dùng để sinh hồ sơ cho hợp đồng.
+enum DocumentTemplateType {
+  QUOTATION // Báo giá
+  CONTRACT // Hợp đồng
+  APPENDIX // Phụ lục
+  ACCEPTANCE // Biên bản nghiệm thu
+  LIQUIDATION // Biên bản thanh lý
+  PAYMENT_REQUEST // Đề nghị thanh toán
+}
+
+// Mẫu Word có trường trộn; file hiện hành là phiên bản mới nhất, phiên bản cũ giữ trong bảng versions.
+model DocumentTemplate {
+  id          String               @id @default(uuid()) @db.Uuid
+  type        DocumentTemplateType
+  name        String
+  description String?
+  isActive    Boolean              @default(true) @map("is_active")
+  version     Int                  @default(1)
+  fileName    String               @map("file_name")
+  storedName  String               @map("stored_name")
+  size        Int
+  // Các trường trộn mẫu đang dùng (đã kiểm tra thuộc danh sách công bố).
+  fields      String[]
+  createdById String?              @map("created_by_id") @db.Uuid
+  updatedById String?              @map("updated_by_id") @db.Uuid
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt   DateTime?            @map("deleted_at") @db.Timestamptz
+
+  versions  DocumentTemplateVersion[]
+  documents ContractDocument[]
+
+  @@index([type, isActive])
+  @@map("document_templates")
+}
+
+model DocumentTemplateVersion {
+  id           String   @id @default(uuid()) @db.Uuid
+  templateId   String   @map("template_id") @db.Uuid
+  version      Int
+  fileName     String   @map("file_name")
+  storedName   String   @map("stored_name")
+  size         Int
+  fields       String[]
+  note         String?
+  uploadedById String?  @map("uploaded_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  template DocumentTemplate @relation(fields: [templateId], references: [id])
+
+  @@unique([templateId, version])
+  @@map("document_template_versions")
+}
+
+enum ContractDocumentSource {
+  GENERATED // Sinh từ mẫu
+  SIGNED // Bản scan đã ký
+}
+
+// Gắn một tài liệu trong kho hồ sơ (02) với hợp đồng: loại hồ sơ, nguồn và mẫu đã dùng lần gần nhất.
+model ContractDocument {
+  id              String                 @id @default(uuid()) @db.Uuid
+  contractId      String                 @map("contract_id") @db.Uuid
+  documentId      String                 @unique @map("document_id") @db.Uuid
+  type            DocumentTemplateType
+  source          ContractDocumentSource
+  templateId      String?                @map("template_id") @db.Uuid
+  templateVersion Int?                   @map("template_version")
+  createdById     String?                @map("created_by_id") @db.Uuid
+  createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime               @updatedAt @map("updated_at") @db.Timestamptz
+
+  contract     Contract          @relation(fields: [contractId], references: [id])
+  document     Document          @relation(fields: [documentId], references: [id])
+  template     DocumentTemplate? @relation(fields: [templateId], references: [id])
+  /// HĐ dùng bản đã ký này làm bằng chứng BBNT "Đã ký" (04-F, F8).
+  acceptanceOf Contract[]        @relation("ContractAcceptanceDocument")
+
+  @@index([contractId, type])
+  @@map("contract_documents")
+}
+
+// Phụ lục hợp đồng (đặc tả 04-D, E6): HĐ đã duyệt chỉ đổi dịch vụ/giá qua phụ lục được giám đốc duyệt.
+enum AmendmentStatus {
+  DRAFT // Nháp
+  PENDING_APPROVAL // Chờ duyệt
+  APPROVED // Đã duyệt, đã áp dụng vào HĐ
+  CANCELLED // Huỷ
+}
+
+enum AmendmentLineAction {
+  ADD // Thêm dòng dịch vụ
+  UPDATE // Đổi số lượng/đơn giá/diễn giải của dòng có sẵn
+  REMOVE // Bỏ dòng dịch vụ
+}
+
+model ContractAmendment {
+  id              String          @id @default(uuid()) @db.Uuid
+  contractId      String          @map("contract_id") @db.Uuid
+  number          Int // PL-01, PL-02… theo từng HĐ
+  title           String
+  content         String?
+  effectiveDate   DateTime?       @map("effective_date") @db.Date
+  status          AmendmentStatus @default(DRAFT)
+  // Tổng tiền HĐ sau phụ lục, tính khi lưu và kiểm tra lại khi duyệt.
+  subtotal        Decimal         @db.Decimal(18, 2)
+  vatAmount       Decimal         @map("vat_amount") @db.Decimal(18, 2)
+  total           Decimal         @db.Decimal(18, 2)
+  // Lịch đợt thanh toán sau phụ lục: [{ id?, name, amount, dueDate }].
+  installments    Json
+  // Dấu trạng thái dòng dịch vụ/đợt của HĐ lúc lập; HĐ đổi sau đó thì phải cập nhật phụ lục.
+  baseFingerprint String          @map("base_fingerprint")
+  // Ảnh chụp HĐ trước/sau khi áp dụng (lịch sử trước–sau).
+  before          Json?
+  after           Json?
+  returnedReason  String?         @map("returned_reason")
+  createdById     String?         @map("created_by_id") @db.Uuid
+  submittedAt     DateTime?       @map("submitted_at") @db.Timestamptz
+  approvedById    String?         @map("approved_by_id") @db.Uuid
+  approvedAt      DateTime?       @map("approved_at") @db.Timestamptz
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  contract Contract                @relation(fields: [contractId], references: [id])
+  lines    ContractAmendmentLine[]
+
+  @@unique([contractId, number])
+  @@index([contractId, status])
+  @@map("contract_amendments")
+}
+
+model ContractAmendmentLine {
+  id                String              @id @default(uuid()) @db.Uuid
+  amendmentId       String              @map("amendment_id") @db.Uuid
+  sortOrder         Int                 @map("sort_order")
+  action            AmendmentLineAction
+  // Dòng dịch vụ của HĐ bị sửa/bỏ (không khoá ngoại: dòng bị bỏ sẽ bị xoá khi duyệt).
+  contractServiceId String?             @map("contract_service_id") @db.Uuid
+  serviceTypeId     String?             @map("service_type_id") @db.Uuid
+  description       String?
+  period            String?
+  quantity          Int?
+  unitPrice         Decimal?            @map("unit_price") @db.Decimal(18, 2)
+  amount            Decimal?            @db.Decimal(18, 2)
+  assigneeId        String?             @map("assignee_id") @db.Uuid
+
+  amendment ContractAmendment @relation(fields: [amendmentId], references: [id], onDelete: Cascade)
+
+  @@unique([amendmentId, sortOrder])
+  @@map("contract_amendment_lines")
+}

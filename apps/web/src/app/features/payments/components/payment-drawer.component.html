@@ -1,0 +1,187 @@
+<nz-drawer
+  [nzVisible]="!!detail()"
+  [nzWidth]="width()"
+  [nzTitle]="text.detail"
+  (nzOnClose)="closed.emit()"
+>
+  <ng-container *nzDrawerContent>
+    @if (detail(); as p) {
+      <h3 class="title">{{ p.code }} · {{ p.amount | vnd }}</h3>
+      <div class="tags">
+        <nz-tag [nzColor]="colors[p.status]">{{ labels[p.status] }}</nz-tag>
+        <nz-tag>{{ methodLabels[p.method] }}</nz-tag>
+      </div>
+
+      @if (error()) {
+        <nz-alert class="block" nzType="error" nzShowIcon [nzMessage]="error()" />
+      }
+      @if (p.status === 'RETURNED' && p.returnReason) {
+        <nz-alert class="block" nzType="warning" [nzMessage]="text.returnReason + ': ' + p.returnReason" />
+      }
+      @if (p.status === 'CANCELLED' && p.cancelReason) {
+        <nz-alert class="block" nzType="info" [nzMessage]="text.cancelReason + ': ' + p.cancelReason" />
+      }
+
+      <dl class="fields">
+        <dt>{{ text.contract }}</dt>
+        <dd>
+          <button type="button" class="link" (click)="openContract.emit(p.contract.id)">
+            {{ p.contract.code }}
+          </button>
+        </dd>
+        <dt>{{ text.customer }}</dt>
+        <dd>{{ p.contract.customer.name }}</dd>
+        <dt>{{ text.paidDate }}</dt>
+        <dd>{{ p.paidDate | date: 'dd/MM/yyyy' }}</dd>
+        <dt>{{ text.installment }}</dt>
+        <dd>{{ p.installment?.name ?? text.noInstallment }}</dd>
+        <dt>{{ text.documentNumber }}</dt>
+        <dd>{{ p.documentNumber ?? '—' }}</dd>
+        <dt>{{ text.receivedBy }}</dt>
+        <dd>{{ p.receivedBy.fullName }}</dd>
+        @if (p.approvedByName) {
+          <dt>{{ text.approvedBy }}</dt>
+          <dd>{{ p.approvedByName }} · {{ p.approvedAt | date: 'dd/MM/yyyy HH:mm' }}</dd>
+        }
+        @if (p.note) {
+          <dt>{{ text.note }}</dt>
+          <dd>{{ p.note }}</dd>
+        }
+      </dl>
+
+      @if (p.allocations.length) {
+        <h4>{{ text.allocations }}</h4>
+        @for (a of p.allocations; track a.installment.id) {
+          <div class="row">
+            <span>{{ a.installment.name }} · {{ a.installment.dueDate | date: 'dd/MM/yyyy' }}</span>
+            <b>{{ a.amount | vnd }}</b>
+          </div>
+        }
+      }
+
+      <h4>{{ text.documents }}</h4>
+      @for (d of p.documents; track d.id) {
+        <div class="row">
+          <button type="button" class="link" (click)="download.emit(d)">{{ d.fileName }}</button>
+          @if (editable()) {
+            <button
+              nz-button
+              nzType="text"
+              nzDanger
+              nzSize="small"
+              type="button"
+              [disabled]="busy()"
+              (click)="action.emit({ kind: 'detach', documentId: d.id })"
+            >
+              {{ text.detach }}
+            </button>
+          }
+        </div>
+      } @empty {
+        <p class="muted">{{ text.noDocuments }}</p>
+      }
+      @if (editable()) {
+        <input #picker type="file" hidden (change)="pickFile($event)" />
+        <button nz-button nzSize="small" type="button" [nzLoading]="busy()" (click)="picker.click()">
+          {{ text.attach }}
+        </button>
+      }
+
+      @if (mode() === 'none') {
+        @if (editable() || canWithdraw()) {
+          <div class="actions">
+            @if (editable()) {
+              <button nz-button nzType="primary" type="button" [nzLoading]="busy()" (click)="emit('submit')">
+                {{ text.submit }}
+              </button>
+              <button nz-button type="button" (click)="edit.emit(p)">{{ text.edit }}</button>
+            }
+            @if (canWithdraw()) {
+              <button
+                nz-button
+                nzDanger
+                type="button"
+                nz-popconfirm
+                [nzPopconfirmTitle]="text.withdrawConfirm"
+                (nzOnConfirm)="emit('withdraw')"
+              >
+                {{ text.withdraw }}
+              </button>
+            }
+          </div>
+        }
+        @if (canReview()) {
+          <div class="actions">
+            <button
+              nz-button
+              nzType="primary"
+              type="button"
+              [nzLoading]="busy()"
+              nz-popconfirm
+              [nzPopconfirmTitle]="text.approveConfirm"
+              (nzOnConfirm)="emit('approve')"
+            >
+              {{ text.approve }}
+            </button>
+            <button nz-button type="button" (click)="start('return')">{{ text.return }}</button>
+          </div>
+        } @else if (canApprove() && isOwner() && p.status === 'PENDING') {
+          <p class="muted hint">{{ text.selfReview }}</p>
+        }
+        @if (canCancel()) {
+          <div class="actions">
+            <button nz-button nzDanger type="button" (click)="start('cancel')">{{ text.cancel }}</button>
+          </div>
+        }
+      } @else {
+        <div class="form">
+          <label>
+            {{ text.reason }}
+            <textarea
+              nz-input
+              rows="2"
+              maxlength="500"
+              [ngModel]="reason()"
+              (ngModelChange)="reason.set($event)"
+            ></textarea>
+          </label>
+          <div class="actions">
+            <button nz-button type="button" (click)="reset()">{{ text.close }}</button>
+            <button
+              nz-button
+              nzType="primary"
+              [nzDanger]="mode() === 'cancel'"
+              type="button"
+              [disabled]="!reasonValid()"
+              [nzLoading]="busy()"
+              (click)="confirmReason()"
+            >
+              {{ mode() === 'cancel' ? text.cancel : text.return }}
+            </button>
+          </div>
+        </div>
+      }
+
+      <h4>{{ text.history }}</h4>
+      @if (p.migrated) {
+        <p class="muted">{{ text.migrated }}</p>
+      }
+      <nz-timeline>
+        @for (e of p.events; track e.id) {
+          <nz-timeline-item>
+            <div>
+              <strong>{{ labels[e.toStatus] }}</strong>
+              <span class="muted"> · {{ e.occurredAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+            @if (e.note) {
+              <div>{{ e.note }}</div>
+            }
+            @if (e.actorName) {
+              <div class="muted">{{ e.actorName }}</div>
+            }
+          </nz-timeline-item>
+        }
+      </nz-timeline>
+    }
+  </ng-container>
+</nz-drawer>

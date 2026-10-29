@@ -1,0 +1,78 @@
+.status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+
+  .label {
+    font-weight: 500;
+  }
+}
+
+.status-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.block {
+  margin-bottom: 12px;
+}
+
+.overdue {
+  color: #cf1322;
+  font-weight: 600;
+}
+
+.assignee {
+  width: 100%;
+  min-width: 200px;
+}
+
+.action-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #f4f6fa;
+}
+
+.doc {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.doc-body {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.small {
+  font-size: 12px;
+}
+
+.upload {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px dashed #d9d9d9;
+
+  input {
+    flex: 1;
+    min-width: 180px;
+  }
+
+  &.highlight {
+    border-color: #faad14;
+    background: #fffbe6;
+  }
+}

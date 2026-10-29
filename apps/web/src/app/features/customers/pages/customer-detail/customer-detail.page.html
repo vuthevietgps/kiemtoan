@@ -1,0 +1,135 @@
+@if (loadError() && !notFound()) { <nz-alert nzType="error" [nzMessage]="loadError()" /><button nz-button (click)="load()">{{ text.retry }}</button> }
+@if (notFound()) {
+  <nz-result nzStatus="404" [nzTitle]="text.notFound" [nzSubTitle]="text.notFoundDetail">
+    <div nz-result-extra>
+      <a nz-button nzType="primary" routerLink="/customers">{{ text.back }}</a>
+    </div>
+  </nz-result>
+} @else if (customer(); as c) {
+  <app-page-header [title]="c.name" [subtitle]="'MST: ' + c.taxCode">
+    <nz-tag [nzColor]="statusColors[c.status]">{{ statusLabels[c.status] }}</nz-tag>
+    <a nz-button routerLink="/customers"><nz-icon nzType="arrow-left" /> {{ text.list }}</a>
+    <button
+      nz-button
+      nzDanger
+      *appCan="'customers:delete'"
+      nz-popconfirm
+      [nzPopconfirmTitle]="text.confirmRemove"
+      (nzOnConfirm)="remove()"
+    >
+      <nz-icon nzType="delete" /> {{ text.remove }}
+    </button>
+  </app-page-header>
+
+  <div class="panel">
+    <nz-tabs>
+      <nz-tab [nzTitle]="text.info">
+        @if (editing()) {
+          @if (store.error(); as error) { <nz-alert nzType="error" [nzMessage]="error" /> }
+          <app-customer-form [customer]="c" [users]="store.owners()" [saving]="store.busy()" (submitted)="save($event)" (cancelled)="editing.set(false)" />
+        } @else {
+          <nz-descriptions nzBordered [nzColumn]="{ xxl: 2, xl: 2, lg: 2, md: 1, sm: 1, xs: 1 }" nzSize="small">
+            <nz-descriptions-item [nzTitle]="text.name">{{ c.name }}</nz-descriptions-item>
+            <nz-descriptions-item [nzTitle]="text.taxCode">{{ c.taxCode }}</nz-descriptions-item>
+            <nz-descriptions-item [nzTitle]="text.address">{{ c.address }}</nz-descriptions-item>
+            <nz-descriptions-item [nzTitle]="text.representative">{{ c.legalRep }}</nz-descriptions-item>
+            <nz-descriptions-item [nzTitle]="text.businessType">{{ c.businessType }}</nz-descriptions-item>
+            <nz-descriptions-item [nzTitle]="text.taxPeriod">{{ taxPeriodLabels[c.taxPeriod] }}</nz-descriptions-item>
+            <nz-descriptions-item [nzTitle]="text.fiscalYearEnd">{{ text.monthPrefix }}{{ c.fiscalYearEndMonth }}</nz-descriptions-item>
+            <nz-descriptions-item [nzTitle]="text.vatMethod">{{ c.vatMethod ? vatMethodLabels[c.vatMethod] : text.notSet }}</nz-descriptions-item>
+            <nz-descriptions-item [nzTitle]="text.pitPeriod">{{ c.pitPeriod ? pitPeriodLabels[c.pitPeriod] : text.notSet }}</nz-descriptions-item>
+            <nz-descriptions-item [nzTitle]="text.accountingRegime">{{ c.accountingRegime ? regimeLabels[c.accountingRegime] : text.notSet }}</nz-descriptions-item>
+            <nz-descriptions-item [nzTitle]="text.taxAuthority">{{ c.taxAuthority }}</nz-descriptions-item>
+            <nz-descriptions-item [nzTitle]="text.contact">{{ c.contactName }}</nz-descriptions-item>
+            <nz-descriptions-item [nzTitle]="text.phone">{{ c.contactPhone }}</nz-descriptions-item>
+            <nz-descriptions-item [nzTitle]="text.email">{{ c.contactEmail }}</nz-descriptions-item>
+            <nz-descriptions-item [nzTitle]="text.owner">{{ c.owner?.fullName }}</nz-descriptions-item>
+            @if (canSeeDocuments()) { <nz-descriptions-item [nzTitle]="text.documentCount">{{ c.documentCount }}</nz-descriptions-item> }
+            @if (canSeeTasks()) { <nz-descriptions-item [nzTitle]="text.workCount">{{ c.openTaskCount }}</nz-descriptions-item> }
+            <nz-descriptions-item [nzTitle]="text.createdAt">{{ c.createdAt | date: 'dd/MM/yyyy' }}</nz-descriptions-item>
+            <nz-descriptions-item [nzTitle]="text.note" [nzSpan]="2">{{ c.note }}</nz-descriptions-item>
+          </nz-descriptions>
+          <div style="margin-top: 12px" *appCan="'customers:update'">
+            <button nz-button nzType="primary" (click)="editing.set(true)"><nz-icon nzType="edit" /> {{ text.edit }}</button>
+          </div>
+        }
+      </nz-tab>
+
+      @if (canSeeTasks()) {
+        <nz-tab [nzTitle]="text.work">
+          @for (task of c.tasks ?? []; track task.id) { <p>{{ task.title }} — {{ task.dueDate | date:'dd/MM/yyyy' }}</p> } @empty { <p>{{ text.noWork }}</p> }
+          <a nz-button routerLink="/tasks">{{ text.openWork }}</a>
+        </nz-tab>
+      }
+
+      <nz-tab [nzTitle]="relationshipText.tab">
+        <ng-template nz-tab><app-customer-relationships-panel [customerId]="c.id" (changed)="load()" /></ng-template>
+      </nz-tab>
+
+      @if (canSeeContracts()) {
+      <nz-tab [nzTitle]="text.contracts + ' (' + c.contracts.length + ')'">
+        <nz-table
+          #contracts
+          [nzData]="c.contracts"
+          [nzShowPagination]="false"
+          [nzFrontPagination]="false"
+          [nzScroll]="{ x: '560px' }"
+          nzSize="small"
+          [nzNoResult]="text.noContracts"
+        >
+          <thead>
+            <tr>
+              <th>{{ text.code }}</th>
+              <th>{{ text.startDate }}</th>
+              <th>{{ text.status }}</th>
+              <th *appCan="'finance:view'" class="text-right">{{ text.total }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (k of contracts.data; track k.id) {
+              <tr>
+                <td><a [routerLink]="['/contracts', k.id]">{{ k.code }}</a></td>
+                <td>{{ k.startDate | date: 'dd/MM/yyyy' }}</td>
+                <td>{{ contractStatusLabels[k.status] ?? k.status }}</td>
+                <td *appCan="'finance:view'" class="text-right">{{ k.total | vnd }}</td>
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+      </nz-tab>
+
+      }
+      @if (canSeeReceivables()) {
+        <nz-tab [nzTitle]="text.receivables">
+          <ng-template nz-tab>
+            <app-receivables-panel [customerId]="c.id" />
+          </ng-template>
+        </nz-tab>
+      }
+      @if (canSeeObligations()) {
+        <nz-tab [nzTitle]="text.obligations">
+          <ng-template nz-tab>
+            <app-customer-obligations-panel [customerId]="c.id" />
+          </ng-template>
+        </nz-tab>
+      }
+      @if (canSeeDocuments()) {
+        <nz-tab [nzTitle]="text.documents">
+          <ng-template nz-tab>
+            <app-customer-documents-panel [customerId]="c.id" [contracts]="c.contracts" (changed)="load()" />
+          </ng-template>
+        </nz-tab>
+      }
+
+      @if (canSeeCredentials()) {
+        <nz-tab [nzTitle]="text.credentials">
+          <ng-template nz-tab>
+            <app-credential-table [customerId]="c.id" />
+          </ng-template>
+        </nz-tab>
+      }
+    </nz-tabs>
+  </div>
+} @else if (loading()) {
+  <nz-spin nzSimple style="display: block; text-align: center; margin-top: 48px" />
+}

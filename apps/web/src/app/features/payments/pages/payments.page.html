@@ -1,0 +1,103 @@
+<app-page-header [title]="text.title" [subtitle]="text.subtitle" />
+
+<div class="panel">
+  <nz-tabs [nzSelectedIndex]="tab()" (nzSelectedIndexChange)="selectTab($event)">
+    <nz-tab [nzTitle]="text.tabList" />
+    <nz-tab [nzTitle]="pendingTitle" />
+    <nz-tab [nzTitle]="text.tabReceivables" />
+    <nz-tab [nzTitle]="receivableText.tabDue" />
+  </nz-tabs>
+  <ng-template #pendingTitle>
+    {{ text.tabPending }}
+    <nz-badge nzStandalone [nzCount]="store.pendingCount()" [nzOverflowCount]="99" class="badge" />
+  </ng-template>
+
+  @if (tab() === 2) {
+    <app-receivables-panel />
+  } @else if (tab() === 3) {
+    <app-due-installments-panel />
+  } @else {
+    <div class="filters">
+      <input
+        nz-input
+        class="search"
+        [placeholder]="text.search"
+        [ngModel]="search()"
+        (ngModelChange)="search.set($event)"
+        (keyup.enter)="applyFilter()"
+      />
+      @if (tab() === 0) {
+        <nz-select
+          nzAllowClear
+          [nzPlaceHolder]="text.allStates"
+          [ngModel]="store.query().status"
+          (ngModelChange)="filterStatus($event ?? null)"
+        >
+          @for (s of states; track s.value) {
+            <nz-option [nzValue]="s.value" [nzLabel]="s.label" />
+          }
+        </nz-select>
+      }
+      <nz-range-picker
+        nzFormat="dd/MM/yyyy"
+        [ngModel]="range()"
+        (ngModelChange)="range.set($event ?? []); applyFilter()"
+      />
+      <button nz-button (click)="applyFilter()">{{ text.find }}</button>
+      <button nz-button nzType="link" (click)="reset()">{{ text.reset }}</button>
+      <button nz-button *appCan="'payments:export'" (click)="export()">
+        <nz-icon nzType="download" /> {{ receivableText.export }}
+      </button>
+    </div>
+
+    @if (store.error()) {
+      <nz-alert class="notice" nzType="error" nzShowIcon [nzMessage]="store.error()" />
+    }
+
+    <app-payment-table
+      [items]="store.items()"
+      [loading]="store.loading()"
+      [total]="store.total()"
+      [page]="store.query().page"
+      [pageSize]="store.query().pageSize"
+      (opened)="open($event)"
+      (pageChange)="store.setQuery($event)"
+    />
+  }
+</div>
+
+<app-payment-drawer
+  [detail]="store.detail()"
+  [busy]="store.busy()"
+  [error]="store.actionError()"
+  [userId]="userId()"
+  [canCreate]="canCreate()"
+  [canApprove]="canApprove()"
+  (closed)="close()"
+  (action)="act($event)"
+  (edit)="startEdit($event)"
+  (openContract)="openContract($event)"
+  (download)="download($event)"
+/>
+
+<nz-modal
+  [nzVisible]="!!editing()"
+  [nzTitle]="text.editPayment"
+  [nzFooter]="null"
+  (nzOnCancel)="editing.set(null)"
+>
+  <ng-container *nzModalContent>
+    @if (editing(); as e) {
+      <app-payment-form
+        [contractId]="e.contract.id"
+        [installments]="e.contract.installments"
+        [remaining]="e.contract.remainingAmount"
+        [pending]="e.contract.pendingAmount"
+        [payment]="e.payment"
+        [busy]="store.busy()"
+        (saved)="saveEdit($event)"
+        (cancelled)="editing.set(null)"
+      />
+    }
+  </ng-container>
+</nz-modal>

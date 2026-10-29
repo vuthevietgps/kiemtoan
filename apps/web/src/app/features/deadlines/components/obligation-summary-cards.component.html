@@ -1,0 +1,13 @@
+@for (c of cards; track c.key) {
+  <button
+    type="button"
+    class="card"
+    [class.active]="active() === c.status"
+    [attr.data-tone]="c.tone"
+    [attr.aria-pressed]="active() === c.status"
+    (click)="pick.emit(active() === c.status ? null : c.status)"
+  >
+    <span class="value">{{ summary()[c.key] }}</span>
+    <span class="label">{{ c.label }}</span>
+  </button>
+}

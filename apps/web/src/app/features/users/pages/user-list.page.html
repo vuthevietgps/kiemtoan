@@ -1,0 +1,33 @@
+<app-page-header [title]="text.title" [subtitle]="text.subtitle"><button nz-button nzType="primary" *appCan="'users:create'" [disabled]="store.busy()" (click)="openForm(null)">{{ text.addUser }}</button></app-page-header>
+@if (store.error(); as error) { <nz-alert nzType="error" [nzMessage]="error" nzShowIcon /> }
+@if (store.success(); as message) { <nz-alert nzType="success" [nzMessage]="message" nzShowIcon /> }
+<div class="panel"><app-role-permissions-card [catalog]="store.catalog()" /></div>
+<div class="panel"><div class="filters">
+  <input nz-input [placeholder]="text.search" [ngModel]="store.search()" (ngModelChange)="onSearch($event)" />
+  <nz-select nzAllowClear [nzPlaceHolder]="text.allRoles" [ngModel]="store.role()" (ngModelChange)="store.role.set($event); store.page.set(1)">@for (role of roleOptions; track role[0]) { <nz-option [nzValue]="role[0]" [nzLabel]="role[1]" /> }</nz-select>
+  <nz-select nzAllowClear [nzPlaceHolder]="text.allTeams" [ngModel]="store.teamId()" (ngModelChange)="store.teamId.set($event); store.page.set(1)">@for (team of store.teams(); track team.id) { <nz-option [nzValue]="team.id" [nzLabel]="team.name" /> }</nz-select>
+  <nz-select nzAllowClear [nzPlaceHolder]="text.allStatuses" [ngModel]="store.status()" (ngModelChange)="store.status.set($event); store.page.set(1)">@for (status of statusOptions; track status[0]) { <nz-option [nzValue]="status[0]" [nzLabel]="status[1]" /> }</nz-select>
+</div>
+@if (store.users.error()) { <nz-alert nzType="error" [nzMessage]="text.errors" /><button nz-button (click)="store.users.reload()">{{ text.retry }}</button> }
+<nz-table #table [nzData]="store.users.value()?.items ?? []" [nzLoading]="store.users.isLoading()" [nzFrontPagination]="false" [nzTotal]="store.users.value()?.total ?? 0" [nzPageIndex]="store.page()" [nzPageSize]="store.pageSize()" (nzPageIndexChange)="store.page.set($event)" (nzPageSizeChange)="store.pageSize.set($event)" nzShowSizeChanger [nzScroll]="{ x: '1100px' }" [nzNoResult]="text.empty">
+  <thead><tr><th>{{ text.fullName }}</th><th>{{ text.email }}</th><th>{{ text.role }}</th><th>{{ text.team }}</th><th>{{ text.status }}</th><th>{{ text.lastLogin }}</th><th nzWidth="270px"></th></tr></thead>
+  <tbody>@for (user of table.data; track user.id) { <tr>
+    <td>{{ user.fullName }}<div class="text-muted">{{ user.title }}</div></td><td>{{ user.email }}</td><td>{{ labels[user.role] }}<div class="text-muted">{{ user.accessRole?.name }}</div>@if (user.accessRequests.length) { <nz-tag nzColor="orange">{{ text.pending }}</nz-tag> }</td><td>{{ user.team?.name ?? '—' }}</td><td><nz-tag [nzColor]="user.isActive && !user.leftAt ? 'green' : 'red'">{{ status(user) }}</nz-tag></td><td>{{ user.lastLoginAt ? (user.lastLoginAt | date:'dd/MM/yyyy HH:mm') : text.neverLogin }}</td>
+    <td><ng-container *appCan="'users:update'">
+      <button nz-button nzSize="small" [disabled]="store.busy()" (click)="openForm(user)">{{ text.edit }}</button>
+      @if (user.id !== auth.user()?.id && !user.leftAt && (user.role !== 'DIRECTOR' || auth.can('users:approve'))) {
+        <button nz-button nzSize="small" nz-popconfirm [nzPopconfirmTitle]="text.confirm" [disabled]="store.busy()" (nzOnConfirm)="toggle(user)">{{ user.isActive ? text.lock : text.unlock }}</button>
+        <button nz-button nzSize="small" nzDanger nz-popconfirm [nzPopconfirmTitle]="text.confirm" [disabled]="store.busy()" (nzOnConfirm)="leave(user)">{{ text.leave }}</button>
+      }
+      @if (user.isActive && !user.leftAt && (user.role !== 'DIRECTOR' || auth.can('users:approve'))) {
+        <button nz-button nzSize="small" [disabled]="store.busy()" (click)="deliver(user, user.mustChangePassword ? 'invite' : 'password-reset')">{{ user.mustChangePassword ? text.invite : text.reset }}</button>
+        <button nz-button nzSize="small" nz-popconfirm [nzPopconfirmTitle]="text.confirm" [disabled]="store.busy()" (nzOnConfirm)="revoke(user)">{{ text.revoke }}</button>
+      }
+    </ng-container></td>
+  </tr> }</tbody>
+</nz-table></div>
+<app-administration-panel [teams]="store.teams()" [roles]="store.roles()" [catalog]="store.catalog()" [requests]="store.requests()" [requestTotal]="store.requestTotal()" [requestPage]="store.requestPage()" [requestStatus]="store.requestStatus()" [busy]="store.busy()" [canManage]="auth.can('users:update')" [canManageRoles]="auth.can('access-control:create')" [canReview]="auth.can('users:approve')" [showRequests]="auth.can('users:manage_access')" (action)="action($event)" />
+<app-user-form-modal [open]="modalOpen()" [user]="editing()" [teams]="store.teams()" [profiles]="store.roles()" [currentUserId]="auth.user()?.id" [busy]="store.busy()" (submitted)="save($event)" (closed)="modalOpen.set(false)" />
+<nz-modal [nzVisible]="!!store.link()" [nzTitle]="text.linkTitle" [nzFooter]="null" (nzOnCancel)="store.link.set(null)"><ng-container *nzModalContent>
+  @if (store.link(); as link) { <p>{{ link.emailSent ? text.emailSent : text.emailNotSent }}</p>@if (link.link) { <textarea nz-input readonly rows="4" [value]="link.link"></textarea> }<p>{{ text.expires }}: {{ link.expiresAt | date:'dd/MM/yyyy HH:mm' }}</p><button nz-button (click)="store.link.set(null)">{{ text.close }}</button> }
+</ng-container></nz-modal>

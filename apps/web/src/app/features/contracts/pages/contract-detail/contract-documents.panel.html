@@ -1,0 +1,172 @@
+<div class="panel">
+  <h3>{{ text.title }}</h3>
+  <p class="text-muted">{{ text.hint }}</p>
+
+  @if (store.error(); as error) {
+    <nz-alert nzType="error" nzShowIcon [nzMessage]="error" style="margin-top: 8px" />
+  }
+
+  @if (canGenerate()) {
+    @if (templates().length) {
+      <div class="bar">
+        <nz-select
+          [nzPlaceHolder]="text.chooseTemplate"
+          [ngModel]="templateId()"
+          (ngModelChange)="chooseTemplate($event)"
+          [nzDisabled]="store.busy()"
+        >
+          @for (t of templates(); track t.id) {
+            <nz-option [nzValue]="t.id" [nzLabel]="typeLabels[t.type] + ' — ' + t.name" />
+          }
+        </nz-select>
+        @if (generatedTargets().length) {
+          <nz-select
+            nzAllowClear
+            [nzPlaceHolder]="text.newDocument"
+            [ngModel]="generateTarget()"
+            (ngModelChange)="generateTarget.set($event ?? null)"
+            [nzDisabled]="store.busy()"
+          >
+            @for (d of generatedTargets(); track d.id) {
+              <nz-option
+                [nzValue]="d.document.id"
+                [nzLabel]="text.newVersionOf + ' ' + d.document.fileName"
+              />
+            }
+          </nz-select>
+        }
+        <button
+          nz-button
+          nzType="primary"
+          [disabled]="!templateId() || store.busy()"
+          [nzLoading]="store.busy()"
+          (click)="generate()"
+        >
+          {{ text.generate }}
+        </button>
+      </div>
+    } @else if (!store.loading()) {
+      <p class="text-muted" style="margin-top: 8px">{{ text.noTemplate }}</p>
+    }
+  } @else if (canSign()) {
+    <p class="text-muted" style="margin-top: 8px">{{ text.financeHint }}</p>
+  }
+
+  @if (canSign()) {
+    <div class="bar">
+      <span>{{ text.signedTitle }}:</span>
+      <nz-select
+        [ngModel]="signedType()"
+        (ngModelChange)="chooseSignedType($event)"
+        [nzDisabled]="store.busy()"
+      >
+        @for (type of types; track type) {
+          <nz-option [nzValue]="type" [nzLabel]="typeLabels[type]" />
+        }
+      </nz-select>
+      @if (signedTargets().length) {
+        <nz-select
+          nzAllowClear
+          [nzPlaceHolder]="text.newDocument"
+          [ngModel]="signedTarget()"
+          (ngModelChange)="signedTarget.set($event ?? null)"
+          [nzDisabled]="store.busy()"
+        >
+          @for (d of signedTargets(); track d.id) {
+            <nz-option
+              [nzValue]="d.document.id"
+              [nzLabel]="text.newVersionOf + ' ' + d.document.fileName"
+            />
+          }
+        </nz-select>
+      }
+      <label>
+        {{ text.signedFile }}
+        <input
+          type="file"
+          accept=".pdf,.png,.jpg,.jpeg"
+          [disabled]="store.busy()"
+          (change)="selectSigned($event)"
+        />
+      </label>
+    </div>
+    @if (signedInvalid()) {
+      <nz-alert nzType="warning" [nzMessage]="text.signedInvalid" />
+    }
+  }
+
+  <nz-table
+    #table
+    [nzData]="store.items()"
+    [nzLoading]="store.loading()"
+    [nzShowPagination]="false"
+    [nzFrontPagination]="false"
+    nzSize="small"
+    [nzScroll]="{ x: '760px' }"
+    [nzNoResult]="text.empty"
+  >
+    <thead>
+      <tr>
+        <th>{{ text.type }}</th>
+        <th>{{ text.source }}</th>
+        <th>{{ text.file }}</th>
+        <th>{{ text.version }}</th>
+        <th>{{ text.templateVersion }}</th>
+        <th>{{ text.updated }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (item of table.data; track item.id) {
+        <tr>
+          <td>{{ typeLabels[item.type] }}</td>
+          <td>
+            <nz-tag [nzColor]="sourceLabels[item.source].color">{{
+              sourceLabels[item.source].label
+            }}</nz-tag>
+          </td>
+          <td>{{ item.document.fileName }}</td>
+          <td>{{ item.document.version }}</td>
+          <td>
+            @if (item.template) {
+              {{ item.template.name }} (v{{ item.templateVersion }})
+            }
+          </td>
+          <td>{{ item.updatedAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+          <td>
+            <button nz-button nzSize="small" (click)="open(item, false)">
+              {{ text.download }}
+            </button>
+            @if (canPreview(item)) {
+              <button nz-button nzSize="small" (click)="open(item, true)">
+                {{ text.preview }}
+              </button>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </nz-table>
+
+  <nz-modal
+    [nzVisible]="!!previewUrl()"
+    [nzTitle]="text.previewTitle"
+    [nzFooter]="null"
+    [nzWidth]="1000"
+    (nzOnCancel)="closePreview()"
+  >
+    <ng-container *nzModalContent>
+      @if (previewBlob(); as blob) {
+        @if (blob.type === 'application/pdf') {
+          <app-document-pdf-preview [blob]="blob" />
+        } @else {
+          <img
+            [src]="previewUrl()"
+            [alt]="text.previewTitle"
+            style="max-width: 100%; max-height: 65vh"
+          />
+        }
+      }
+    </ng-container>
+  </nz-modal>
+</div>

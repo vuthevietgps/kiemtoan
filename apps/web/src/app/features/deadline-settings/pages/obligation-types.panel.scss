@@ -1,0 +1,25 @@
+.block {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.create {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fafafa;
+
+  h4 {
+    margin: 0 0 12px;
+  }
+}
+
+.row {
+  cursor: pointer;
+}
+
+.muted {
+  color: rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+}

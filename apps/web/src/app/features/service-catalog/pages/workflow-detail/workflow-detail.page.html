@@ -1,0 +1,160 @@
+@if (store.template(); as template) {
+  <app-page-header [title]="template.code + ' — ' + template.name" [subtitle]="template.serviceType.code + ' — ' + template.serviceType.name">
+    <a nz-button routerLink="/service-catalog/workflows">{{ text.back }}</a>
+  </app-page-header>
+
+  @if (store.error()) {
+    <nz-alert nzType="error" [nzMessage]="store.error()" nzShowIcon style="margin-bottom: 12px" />
+  }
+
+  <div class="panel">
+    <div class="filters">
+      <nz-select
+        [ngModel]="store.version()?.id"
+        (ngModelChange)="store.selectVersion($event)"
+        style="width: 100%; max-width: 280px"
+        [nzDisabled]="store.busy()"
+      >
+        @for (v of template.versions; track v.id) {
+          <nz-option [nzValue]="v.id" [nzLabel]="text.version + ' ' + v.versionNo + ' · ' + statusLabels[v.status].label" />
+        }
+      </nz-select>
+      @if (store.version(); as version) {
+        <nz-tag [nzColor]="statusLabels[version.status].color">{{ statusLabels[version.status].label }}</nz-tag>
+        @if (template.isDefault) {
+          <nz-tag nzColor="blue">{{ text.isDefault }}</nz-tag>
+        } @else if (template.activeVersion) {
+          <button nz-button nzSize="small" *appCan="'workflow-templates:approve'" (click)="setDefault()">{{ text.setDefault }}</button>
+        }
+        @if (store.dirty()) {
+          <span class="text-muted">{{ text.unsaved }}</span>
+        }
+      }
+    </div>
+
+    @if (store.version(); as version) {
+      <div class="filters">
+        @if (store.editable()) {
+          <button nz-button nzType="primary" *appCan="'workflow-templates:update'" [nzLoading]="store.busy()" (click)="save()">
+            {{ text.saveDraft }}
+          </button>
+          <button
+            nz-button
+            *appCan="'workflow-templates:approve'"
+            [disabled]="store.busy()"
+            (click)="publish()"
+          >
+            {{ text.publish }}
+          </button>
+          <button
+            nz-button
+            nzDanger
+            *appCan="'workflow-templates:update'"
+            [disabled]="store.busy()"
+            (click)="removeDraft()"
+          >
+            {{ text.removeDraft }}
+          </button>
+        } @else {
+          <span class="text-muted">{{ text.readonlyHint }}</span>
+          @if (!template.draftVersion) {
+            <button nz-button *appCan="'workflow-templates:create'" [disabled]="store.busy()" (click)="newDraft()">{{ text.newDraft }}</button>
+          }
+        }
+      </div>
+
+      <nz-tabs>
+        <nz-tab [nzTitle]="text.steps">
+          <div class="filters">
+            <nz-select
+              [ngModel]="store.scheduleMode()"
+              (ngModelChange)="store.setScheduleMode($event)"
+              [nzDisabled]="!store.editable()"
+              style="width: 100%; max-width: 360px"
+            >
+              @for (o of modeOptions; track o.value) {
+                <nz-option [nzValue]="o.value" [nzLabel]="o.label" />
+              }
+            </nz-select>
+            <input
+              nz-input
+              [ngModel]="store.note()"
+              (ngModelChange)="store.setNote($event)"
+              [placeholder]="text.note"
+              [disabled]="!store.editable()"
+              maxlength="1000"
+            />
+          </div>
+          <app-workflow-steps-table
+            [steps]="store.steps()"
+            [mode]="store.scheduleMode()"
+            [readonly]="!store.editable()"
+            (edit)="editingKey.set($event)"
+            (move)="move($event)"
+            (remove)="removeStep($event)"
+            (reorder)="reorder($event)"
+            [userNames]="store.userNames()"
+          />
+          @if (store.editable()) {
+            <p class="text-muted">{{ text.dragHint }}</p>
+          }
+          @if (store.editable()) {
+            <button nz-button nzType="dashed" style="margin-top: 12px" (click)="addStep()">
+              <nz-icon nzType="plus" /> {{ text.addStep }}
+            </button>
+          }
+        </nz-tab>
+        <nz-tab [nzTitle]="text.requirements + ' (' + store.requirements().length + ')'">
+          <app-workflow-requirements
+            [requirements]="store.requirements()"
+            [steps]="store.steps()"
+            [readonly]="!store.editable()"
+            (changed)="store.setRequirements($event)"
+          />
+        </nz-tab>
+        <nz-tab [nzTitle]="text.preview">
+          <div class="filters">
+            <nz-date-picker [(ngModel)]="previewStart" nzFormat="dd/MM/yyyy" [nzPlaceHolder]="text.startDate" />
+            <input nz-input [(ngModel)]="previewPeriod" [placeholder]="text.period + ' (YYYY-MM)'" style="max-width: 160px" />
+            <button nz-button (click)="loadPreview()" [nzLoading]="store.busy()">{{ text.preview }}</button>
+          </div>
+          @if (store.dirty()) {
+            <p class="text-muted">{{ text.unsaved }} — {{ text.saveDraft }}</p>
+          }
+          @if (store.preview(); as preview) {
+            <app-workflow-preview [preview]="preview" />
+          }
+        </nz-tab>
+      </nz-tabs>
+    }
+  </div>
+
+  <nz-drawer
+    [nzVisible]="!!editingStep()"
+    [nzTitle]="text.editStep"
+    [nzWidth]="'min(640px, 100vw)'"
+    (nzOnClose)="editingKey.set(null)"
+  >
+    <ng-container *nzDrawerContent>
+      @if (editingStep(); as step) {
+        <app-workflow-step-form
+          [step]="step"
+          [mode]="store.scheduleMode()"
+          [others]="otherSteps()"
+          [previous]="editingIndex() > 0 ? store.steps()[editingIndex() - 1] : null"
+          [users]="store.users()"
+          [obligationTypes]="store.obligationTypes()"
+          (submitted)="applyStep($event)"
+          (cancelled)="editingKey.set(null)"
+        />
+      }
+    </ng-container>
+  </nz-drawer>
+} @else if (store.loading()) {
+  <div class="panel">…</div>
+} @else {
+  <div class="panel">
+    <nz-alert nzType="error" [nzMessage]="store.error() || text.notFound" nzShowIcon />
+    <a nz-button routerLink="/service-catalog/workflows" style="margin-top: 12px">{{ text.back }}</a>
+  </div>
+}

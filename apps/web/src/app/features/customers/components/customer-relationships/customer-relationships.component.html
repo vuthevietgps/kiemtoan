@@ -1,0 +1,41 @@
+<h3>{{ text.contacts }}</h3>
+<input nz-input [placeholder]="text.search" (input)="search($event)" />
+<nz-table [nzData]="contacts()" [nzShowPagination]="false" [nzFrontPagination]="false" [nzScroll]="{x:'800px'}" [nzNoResult]="text.empty">
+  <thead><tr><th>{{ text.name }}</th><th>{{ text.title }}</th><th>{{ text.phone }}</th><th>{{ text.email }}</th><th>{{ text.note }}</th><th></th></tr></thead>
+  <tbody>@for (contact of contacts(); track contact.id) { <tr>
+    <td>{{ contact.fullName }} @if (contact.isPrimary) { <nz-tag nzColor="blue">{{ text.primary }}</nz-tag> }</td><td>{{ contact.title }}</td><td>{{ contact.phone }}</td><td>{{ contact.email }}</td><td>{{ contact.note }}</td>
+    <td>@if (canManage()) { <button nz-button [disabled]="busy()" (click)="edit(contact)">{{ text.edit }}</button><button nz-button nzDanger nz-popconfirm [nzPopconfirmTitle]="text.confirm" [disabled]="busy()" (nzOnConfirm)="action.emit({type:'removeContact',id:contact.id})">{{ text.remove }}</button> }</td>
+  </tr> }</tbody>
+</nz-table>
+<nz-pagination [nzPageIndex]="contactPage()" [nzTotal]="contactTotal()" [nzPageSize]="20" (nzPageIndexChange)="contactPageChange.emit($event)" />
+@if (canManage()) {
+  <form nz-form nzLayout="vertical" [formGroup]="form" (ngSubmit)="submit()">
+    <div class="fields">
+      <label>{{ text.name }}<input nz-input formControlName="fullName" /></label>
+      <label>{{ text.title }}<input nz-input formControlName="title" /></label>
+      <label>{{ text.phone }}<input nz-input formControlName="phone" /></label>
+      <label>{{ text.email }}<input nz-input formControlName="email" /></label>
+    </div>
+    <label>{{ text.note }}<textarea nz-input formControlName="note" maxlength="2000"></textarea></label>
+    <label nz-checkbox formControlName="isPrimary">{{ text.primary }}</label>
+    @if (form.invalid && form.touched) { <p class="error">{{ text.invalid }}</p> }
+    <div class="actions"><button nz-button nzType="primary" type="submit" [disabled]="busy() || form.invalid">{{ editing() ? text.save : text.addContact }}</button><button nz-button type="button" [disabled]="busy()" (click)="reset()">{{ text.cancel }}</button></div>
+  </form>
+}
+<h3>{{ text.assignments }}</h3>
+<nz-table [nzData]="assignments()" [nzShowPagination]="false" [nzFrontPagination]="false" [nzScroll]="{x:'600px'}" [nzNoResult]="text.empty">
+  <thead><tr><th>{{ text.name }}</th><th>{{ text.email }}</th><th>{{ text.note }}</th><th></th></tr></thead>
+  <tbody>@for (assignment of assignments(); track assignment.id) { <tr>
+    <td>{{ assignment.user.fullName }} @if (!assignment.user.isActive || assignment.user.leftAt) { <nz-tag>{{ text.inactive }}</nz-tag> }</td><td>{{ assignment.user.email }}</td><td>{{ assignment.note }}</td><td>@if (canManage()) { <button nz-button nzDanger nz-popconfirm [nzPopconfirmTitle]="text.confirm" [disabled]="busy()" (nzOnConfirm)="action.emit({type:'unassign',id:assignment.id})">{{ text.remove }}</button> }</td>
+  </tr> }</tbody>
+</nz-table>
+<nz-pagination [nzPageIndex]="assignmentPage()" [nzTotal]="assignmentTotal()" [nzPageSize]="20" (nzPageIndexChange)="assignmentPageChange.emit($event)" />
+@if (canManage()) {
+  <div class="assignment-form">
+    <nz-select nzShowSearch nzServerSearch [nzPlaceHolder]="text.person" [ngModel]="selectedUser()" (ngModelChange)="selectedUser.set($event)" (nzOnSearch)="personSearch.emit($event)">
+      @for (person of options(); track person.id) { <nz-option [nzValue]="person.id" [nzLabel]="person.fullName + ' — ' + person.email" /> }
+    </nz-select>
+    <input nz-input [placeholder]="text.note" maxlength="2000" [ngModel]="assignmentNote()" (ngModelChange)="assignmentNote.set($event)" />
+    <button nz-button [disabled]="busy() || !selectedUser()" (click)="assign()">{{ text.assign }}</button>
+  </div>
+}

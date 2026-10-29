@@ -1,0 +1,18 @@
+@if (store.error(); as error) { <nz-alert nzType="error" [nzMessage]="error" /><button nz-button (click)="store.load(customerId())">{{ text.retry }}</button> }
+<nz-spin [nzSpinning]="store.loading()">
+  <app-customer-documents [items]="store.items()" [total]="store.total()" [page]="store.query().page" [contracts]="contracts()" [busy]="store.busy()" [canUpload]="auth.can('documents:create')" [canDelete]="auth.can('documents:delete')"
+    (queryChange)="filter($event)" (upload)="upload($event)" (remove)="remove($event)" (history)="store.loadHistory($event.id)" (download)="download($event)" />
+</nz-spin>
+<nz-modal [nzVisible]="!!store.historyId()" [nzTitle]="text.versionsTitle" [nzFooter]="null" [nzWidth]="900" (nzOnCancel)="store.historyId.set(null); closePreview()">
+  <ng-container *nzModalContent>
+    <nz-table [nzData]="store.history()" [nzShowPagination]="false" [nzFrontPagination]="false" [nzScroll]="{x:'650px'}">
+      <thead><tr><th>{{ text.version }}</th><th>{{ text.name }}</th><th>{{ text.date }}</th><th></th></tr></thead>
+      <tbody>@for (version of store.history(); track version.id) { <tr><td>{{ version.version }}</td><td>{{ version.fileName }}</td><td>{{ version.createdAt | date:'dd/MM/yyyy HH:mm' }}</td><td>
+        <button nz-button (click)="file(store.historyId()!, version.version, version.fileName)">{{ text.download }}</button>
+        @if (['application/pdf','image/png','image/jpeg'].includes(version.mimeType)) { <button nz-button (click)="file(store.historyId()!, version.version, version.fileName, true)">{{ text.preview }}</button> }
+      </td></tr> }</tbody>
+    </nz-table>
+    <nz-pagination [nzPageIndex]="store.historyPage()" [nzTotal]="store.historyTotal()" [nzPageSize]="20" (nzPageIndexChange)="store.loadHistory(store.historyId()!, $event)" />
+  </ng-container>
+</nz-modal>
+<nz-modal [nzVisible]="!!previewUrl()" [nzTitle]="text.previewTitle" [nzFooter]="null" [nzWidth]="1000" (nzOnCancel)="closePreview()"><ng-container *nzModalContent>@if (previewBlob(); as blob) { @if (blob.type === 'application/pdf') { <app-document-pdf-preview [blob]="blob" /> } @else { <img [src]="previewUrl()" [alt]="text.previewTitle" style="max-width:100%;max-height:65vh" /> } }</ng-container></nz-modal>

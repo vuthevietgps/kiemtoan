@@ -1,0 +1,53 @@
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .year {
+    width: 120px;
+  }
+}
+
+.block {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.muted {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.add,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+
+  nz-date-picker {
+    width: 160px;
+  }
+
+  nz-select {
+    width: 220px;
+    max-width: 100%;
+  }
+
+  .name {
+    flex: 1 1 220px;
+    min-width: 0;
+  }
+}
+
+.error {
+  margin: 6px 0 0;
+  color: #cf1322;
+}

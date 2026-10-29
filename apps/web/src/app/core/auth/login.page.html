@@ -1,0 +1,31 @@
+<div class="login">
+  <div class="card">
+    <h1>Kế toán &amp; Kiểm toán</h1>
+    <p class="sub">Đăng nhập hệ thống quản lý</p>
+
+    @if (error()) {
+      <nz-alert nzType="error" [nzMessage]="error()!" nzShowIcon class="alert"></nz-alert>
+    }
+
+    <form nz-form nzLayout="vertical" [formGroup]="form" (ngSubmit)="submit()">
+      <nz-form-item>
+        <nz-form-label nzRequired>Email</nz-form-label>
+        <nz-form-control nzErrorTip="Vui lòng nhập email hợp lệ">
+          <input nz-input formControlName="email" type="email" autocomplete="username" />
+        </nz-form-control>
+      </nz-form-item>
+      <nz-form-item>
+        <nz-form-label nzRequired>Mật khẩu</nz-form-label>
+        <nz-form-control nzErrorTip="Mật khẩu tối thiểu 6 ký tự">
+          <input nz-input formControlName="password" type="password" autocomplete="current-password" />
+        </nz-form-control>
+      </nz-form-item>
+      <button nz-button nzType="primary" nzBlock [nzLoading]="loading()">Đăng nhập</button>
+      <a routerLink="/forgot-password">{{ accountText.forgot }}</a>
+    </form>
+
+    <p class="hint">
+      Tài khoản demo (mật khẩu Demo&#64;123): giamdoc, ketoantruong, nhanvien1, thutien, admin &#64;demo.vn
+    </p>
+  </div>
+</div>

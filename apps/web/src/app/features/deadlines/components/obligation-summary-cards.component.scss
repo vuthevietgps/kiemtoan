@@ -1,0 +1,48 @@
+:host {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 767px) {
+  :host {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid #f0f0f0;
+  border-left: 4px solid var(--tone, #d9d9d9);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.card.active {
+  border-color: var(--tone, #1677ff);
+  box-shadow: 0 0 0 1px var(--tone, #1677ff);
+}
+.value {
+  font-size: 22px;
+  font-weight: 600;
+  color: #0f2a4a;
+}
+.label {
+  color: #6b7280;
+}
+[data-tone='neutral'] {
+  --tone: #8c8c8c;
+}
+[data-tone='blue'] {
+  --tone: #1677ff;
+}
+[data-tone='red'] {
+  --tone: #cf1322;
+}
+[data-tone='green'] {
+  --tone: #389e0d;
+}

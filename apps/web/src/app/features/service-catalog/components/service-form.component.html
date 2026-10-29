@@ -1,0 +1,72 @@
+<form nz-form nzLayout="vertical" [formGroup]="form" (ngSubmit)="submit()">
+  <div class="grid">
+    <nz-form-item>
+      <nz-form-label nzRequired>{{ text.code }}</nz-form-label>
+      <nz-form-control [nzErrorTip]="text.serviceCodeError">
+        <input nz-input formControlName="code" placeholder="KTT" />
+      </nz-form-control>
+    </nz-form-item>
+    <nz-form-item>
+      <nz-form-label nzRequired>{{ text.name }}</nz-form-label>
+      <nz-form-control [nzErrorTip]="text.serviceNameError">
+        <input nz-input formControlName="name" />
+      </nz-form-control>
+    </nz-form-item>
+    <nz-form-item>
+      <nz-form-label nzRequired>{{ text.cycle }}</nz-form-label>
+      <nz-form-control>
+        <nz-select formControlName="cycle">
+          @for (o of cycleOptions; track o.value) {
+            <nz-option [nzValue]="o.value" [nzLabel]="o.label" />
+          }
+        </nz-select>
+      </nz-form-control>
+    </nz-form-item>
+    <nz-form-item>
+      <nz-form-label>{{ text.defaultPrice }}</nz-form-label>
+      <nz-form-control>
+        <nz-input-number
+          formControlName="defaultPrice"
+          [nzMin]="0"
+          [nzFormatter]="moneyFormatter"
+          [nzParser]="moneyParser"
+        />
+      </nz-form-control>
+    </nz-form-item>
+    <nz-form-item>
+      <nz-form-label nzRequired>{{ text.pricingBasis }}</nz-form-label>
+      <nz-form-control>
+        <nz-select formControlName="pricingBasis">
+          @for (o of basisOptions; track o.value) {
+            <nz-option [nzValue]="o.value" [nzLabel]="o.label" />
+          }
+        </nz-select>
+      </nz-form-control>
+    </nz-form-item>
+    <nz-form-item>
+      <nz-form-label>{{ text.pricingUnit }}</nz-form-label>
+      <nz-form-control>
+        <input nz-input formControlName="pricingUnit" [placeholder]="text.pricingUnitHint" maxlength="50" />
+      </nz-form-control>
+    </nz-form-item>
+  </div>
+  <nz-form-item>
+    <nz-form-label>{{ text.description }}</nz-form-label>
+    <nz-form-control><textarea nz-input formControlName="description" rows="2"></textarea></nz-form-control>
+  </nz-form-item>
+  <div class="grid">
+    <nz-form-item>
+      <nz-form-label>{{ text.isActive }}</nz-form-label>
+      <nz-form-control><nz-switch formControlName="isActive" /></nz-form-control>
+    </nz-form-item>
+    <nz-form-item>
+      <nz-form-label [nzTooltipTitle]="text.issuesAuditReportHint">{{ text.issuesAuditReport }}</nz-form-label>
+      <nz-form-control><nz-switch formControlName="issuesAuditReport" /></nz-form-control>
+    </nz-form-item>
+  </div>
+
+  <div class="text-right" style="margin-top: 16px">
+    <button nz-button type="button" (click)="cancelled.emit()">{{ text.cancel }}</button>
+    <button nz-button nzType="primary" type="submit" [nzLoading]="saving()" style="margin-left: 8px">{{ text.save }}</button>
+  </div>
+</form>

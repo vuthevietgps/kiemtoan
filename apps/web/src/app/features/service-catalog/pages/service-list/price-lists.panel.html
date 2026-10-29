@@ -1,0 +1,76 @@
+@if (store.error()) {
+  <nz-alert nzType="error" [nzMessage]="store.error()" nzShowIcon style="margin-bottom: 12px" />
+}
+
+@if (editing(); as current) {
+  <h4>{{ current === 'new' ? text.addPriceList : text.editPriceList }}</h4>
+  <app-price-list-form
+    [basis]="current === 'new' ? service().pricingBasis : current.pricingBasis"
+    [unit]="current === 'new' ? service().pricingUnit : current.pricingUnit"
+    [priceList]="editedList()"
+    [saving]="store.busy()"
+    (submitted)="save($event)"
+    (cancelled)="editing.set(null)"
+  />
+} @else {
+  <div class="text-right" style="margin-bottom: 12px">
+    <button nz-button nzType="primary" *appCan="'service-catalog:update'" (click)="editing.set('new')">
+      <nz-icon nzType="plus" /> {{ text.addPriceList }}
+    </button>
+  </div>
+  <p class="text-muted">{{ text.lockedHint }}</p>
+  <nz-table
+    [nzData]="store.lists()"
+    [nzLoading]="store.loading()"
+    [nzShowPagination]="false"
+    [nzNoResult]="text.noPriceLists"
+    [nzScroll]="{ x: '560px' }"
+    nzSize="small"
+  >
+    <thead>
+      <tr>
+        <th nzWidth="120px">{{ text.effectiveFrom }}</th>
+        <th nzWidth="120px">{{ text.status }}</th>
+        <th>{{ text.tiers }}</th>
+        <th nzWidth="120px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (list of store.lists(); track list.id) {
+        <tr>
+          <td>{{ list.effectiveFrom | date: 'dd/MM/yyyy' : 'UTC' }}</td>
+          <td>
+            <nz-tag [nzColor]="statusLabels[list.status].color">{{ statusLabels[list.status].label }}</nz-tag>
+          </td>
+          <td>
+            @for (tier of list.tiers; track $index) {
+              <div>{{ tierLabel(tier, list) }}: {{ tier.unitPrice | vnd }}</div>
+            }
+            @if (list.note) {
+              <div class="text-muted">{{ list.note }}</div>
+            }
+          </td>
+          <td>
+            @if (list.editable) {
+              <ng-container *appCan="'service-catalog:update'">
+                <button nz-button nzType="link" nzSize="small" (click)="editing.set(list)">{{ text.edit }}</button>
+                <button
+                  nz-button
+                  nzType="link"
+                  nzDanger
+                  nzSize="small"
+                  nz-popconfirm
+                  [nzPopconfirmTitle]="text.confirmRemove"
+                  [disabled]="store.busy()"
+                  (nzOnConfirm)="remove(list)"
+                >
+                  {{ text.remove }}
+                </button>
+              </ng-container>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </nz-table>
+}

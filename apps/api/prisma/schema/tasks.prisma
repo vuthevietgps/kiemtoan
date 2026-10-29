@@ -1,0 +1,137 @@
+// Module: tasks, deadlines
+
+// 8 trạng thái theo Phụ lục 1 (đặc tả 05, QD04).
+enum TaskStatus {
+  NOT_STARTED // Chưa bắt đầu
+  IN_PROGRESS // Đang thực hiện
+  WAITING_CLIENT // Chờ khách hàng cung cấp hồ sơ
+  IN_REVIEW // Chờ kiểm tra (cấp hiện tại ở review_level)
+  CHANGES_REQUESTED // Yêu cầu chỉnh sửa
+  APPROVED // Đã phê duyệt — qua đủ cấp, còn giao nộp (H1)
+  COMPLETED // Hoàn thành
+  ON_HOLD // Tạm dừng
+}
+
+enum TaskPriority {
+  LOW // Thấp
+  NORMAL // Bình thường
+  HIGH // Cao
+  URGENT // Khẩn cấp
+}
+
+enum TaskReviewDecision {
+  ACCEPT // Chấp nhận
+  RETURN // Trả lại, yêu cầu chỉnh sửa
+}
+
+model Task {
+  id                String       @id @default(uuid()) @db.Uuid
+  /// Mã việc tự sinh CV-YYYY-NNNNN (PL1 III.2).
+  code              String       @unique @default(dbgenerated("((('CV-'::text || to_char(timezone('Asia/Ho_Chi_Minh'::text, now()), 'YYYY'::text)) || '-'::text) || lpad((nextval('task_code_seq'::regclass))::text, 5, '0'::text))"))
+  customerId        String       @map("customer_id") @db.Uuid
+  contractId        String?      @map("contract_id") @db.Uuid
+  contractServiceId String?      @map("contract_service_id") @db.Uuid
+  title             String
+  period            String? // ví dụ "2025-10"
+  dueDate           DateTime     @map("due_date") @db.Date
+  /// Hạn gốc lúc giao việc; đổi hạn sau đó phải qua gia hạn (G2, H7).
+  originalDueDate   DateTime     @map("original_due_date") @db.Date
+  plannedStartDate  DateTime?    @map("planned_start_date") @db.Date
+  status            TaskStatus   @default(NOT_STARTED)
+  /// Trạng thái trước khi tạm dừng, để tiếp tục (H5).
+  statusBeforeHold  TaskStatus?  @map("status_before_hold")
+  priority          TaskPriority @default(NORMAL)
+  /// Tỷ lệ % người làm tự nhập, chỉ tham khảo (H10).
+  progress          Int          @default(0)
+  requiresEvidence  Boolean      @default(true) @map("requires_evidence")
+  /// Bước có hạn pháp lý (G6) / cần xác nhận giao nộp sau phê duyệt (H1).
+  isStatutory       Boolean      @default(false) @map("is_statutory")
+  requiresDelivery  Boolean      @default(false) @map("requires_delivery")
+  /// Số cấp soát xét 0/1/2 (H2) và cấp đang chờ khi ở Chờ kiểm tra.
+  reviewLevels      Int          @default(0) @map("review_levels")
+  reviewLevel       Int?         @map("review_level")
+  assigneeId        String?      @map("assignee_id") @db.Uuid
+  /// Người kiểm tra (cấp 1) và người phê duyệt (cấp 2); id người dùng, kiểm tra ở service.
+  reviewerId        String?      @map("reviewer_id") @db.Uuid
+  approverId        String?      @map("approver_id") @db.Uuid
+  createdById       String?      @map("created_by_id") @db.Uuid
+  note              String?
+  resultNote        String?      @map("result_note")
+  startedAt         DateTime?    @map("started_at") @db.Timestamptz
+  /// Lần gửi kiểm tra đầu tiên (G4: đúng hạn của trợ lý) và lúc được chấp nhận cấp cuối.
+  firstSubmittedAt  DateTime?    @map("first_submitted_at") @db.Timestamptz
+  acceptedAt        DateTime?    @map("accepted_at") @db.Timestamptz
+  completedAt       DateTime?    @map("completed_at") @db.Timestamptz
+  approvedById      String?      @map("approved_by_id") @db.Uuid
+  approvedAt        DateTime?    @map("approved_at") @db.Timestamptz
+  returnCount       Int          @default(0) @map("return_count")
+  reopenCount       Int          @default(0) @map("reopen_count")
+  /// Bản ghi chuyển đổi từ 3 trạng thái cũ (H9): không bịa lịch sử, không tính đúng hạn khi thiếu mốc.
+  legacy            Boolean      @default(false)
+  // Bước kế hoạch sinh ra việc này (04-B); (bước, kỳ) unique để gọi lại/đồng thời không sinh trùng (H12).
+  planStepId        String?      @map("plan_step_id") @db.Uuid
+  /// Nghĩa vụ pháp lý của khách hàng mà việc phục vụ (06, I6).
+  obligationId      String?      @map("obligation_id") @db.Uuid
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime?    @map("deleted_at") @db.Timestamptz
+
+  customer        Customer            @relation(fields: [customerId], references: [id])
+  contract        Contract?           @relation(fields: [contractId], references: [id])
+  contractService ContractService?    @relation(fields: [contractServiceId], references: [id])
+  assignee        User?               @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdBy       User?               @relation("TaskCreator", fields: [createdById], references: [id])
+  approvedBy      User?               @relation("TaskApprover", fields: [approvedById], references: [id])
+  documents       Document[]
+  planStep        ContractPlanStep?   @relation(fields: [planStepId], references: [id])
+  obligation      CustomerObligation? @relation(fields: [obligationId], references: [id])
+  statusEvents    TaskStatusEvent[]
+  reviews         TaskReview[]
+  clientWaits     TaskClientWait[]
+  dueChanges      TaskDueChange[]
+  comments        TaskComment[]
+
+  @@unique([planStepId, period])
+  @@index([assigneeId, status])
+  @@index([reviewerId, status])
+  @@index([approverId, status])
+  @@index([customerId])
+  @@index([contractId])
+  @@index([dueDate])
+  @@index([obligationId])
+  @@map("tasks")
+}
+
+// Lịch sử chuyển trạng thái (PL1 VI.5): chỉ thêm, không sửa/xoá.
+model TaskStatusEvent {
+  id         String      @id @default(uuid()) @db.Uuid
+  taskId     String      @map("task_id") @db.Uuid
+  fromStatus TaskStatus? @map("from_status")
+  toStatus   TaskStatus  @map("to_status")
+  actorId    String?     @map("actor_id") @db.Uuid
+  note       String?
+  occurredAt DateTime    @default(now()) @map("occurred_at") @db.Timestamptz
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, occurredAt])
+  @@map("task_status_events")
+}
+
+// Mỗi lượt soát xét một cấp: ai, cấp nào, chấp nhận/trả lại, nội dung, lúc vào cấp và lúc quyết định (G7).
+model TaskReview {
+  id         String             @id @default(uuid()) @db.Uuid
+  taskId     String             @map("task_id") @db.Uuid
+  level      Int
+  reviewerId String             @map("reviewer_id") @db.Uuid
+  decision   TaskReviewDecision
+  note       String?
+  enteredAt  DateTime           @map("entered_at") @db.Timestamptz
+  decidedAt  DateTime           @default(now()) @map("decided_at") @db.Timestamptz
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, decidedAt])
+  @@index([reviewerId, decidedAt])
+  @@map("task_reviews")
+}

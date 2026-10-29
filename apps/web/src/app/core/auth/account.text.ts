@@ -1,0 +1,18 @@
+export const ACCOUNT_TEXT = {
+  title: 'Tài khoản của tôi', subtitle: 'Thông tin cá nhân, bảo mật và phiên đăng nhập',
+  exportAudit: 'Xuất Excel',
+  profile: 'Thông tin cá nhân', fullName: 'Họ tên', phone: 'Điện thoại', jobTitle: 'Chức danh', save: 'Lưu thông tin',
+  password: 'Mật khẩu mới', currentPassword: 'Mật khẩu hiện tại', confirmPassword: 'Nhập lại mật khẩu mới', change: 'Đổi mật khẩu',
+  passwordPolicy: 'Dùng 10–72 ký tự, tối đa 72 byte, có chữ hoa, chữ thường, số và ký tự đặc biệt.',
+  mismatch: 'Hai mật khẩu mới chưa khớp', saved: 'Đã cập nhật thông tin', changed: 'Đã đổi mật khẩu. Vui lòng đăng nhập lại.',
+  required: 'Bạn cần đổi mật khẩu ban đầu trước khi sử dụng các chức năng khác.',
+  sessions: 'Phiên đăng nhập', device: 'Thiết bị', ip: 'Địa chỉ IP', created: 'Đăng nhập', lastUsed: 'Sử dụng gần nhất',
+  revoke: 'Thu hồi', revokeAll: 'Đăng xuất tất cả thiết bị', current: 'Phiên hiện tại', confirm: 'Thu hồi phiên đăng nhập này?',
+  revoked: 'Đã thu hồi phiên', error: 'Không tải được thông tin tài khoản', retry: 'Thử lại',
+  forgot: 'Quên mật khẩu', email: 'Email tài khoản', send: 'Gửi hướng dẫn', login: 'Về đăng nhập',
+  activate: 'Kích hoạt tài khoản', reset: 'Đặt lại mật khẩu', submit: 'Xác nhận mật khẩu',
+  invalidToken: 'Liên kết không hợp lệ. Hãy yêu cầu quản trị gửi lại hoặc dùng Quên mật khẩu.',
+  success: 'Đã cập nhật mật khẩu. Bạn có thể đăng nhập.',
+  verify: 'Xác nhận mật khẩu trước khi xem bí mật', verifyHint: 'Xác nhận có hiệu lực trong 5 phút cho phiên hiện tại.',
+  verifyButton: 'Xác nhận', cancel: 'Huỷ', missing: 'Vui lòng nhập đủ thông tin hợp lệ', unknown: 'Không xác định',
+} as const;

@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ketoan-postgres
+    environment:
+      POSTGRES_USER: ketoan
+      POSTGRES_PASSWORD: ketoan_dev
+      POSTGRES_DB: ketoan
+    ports:
+      - '5433:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+
+volumes:
+  pgdata:

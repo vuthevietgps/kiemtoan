@@ -1,0 +1,228 @@
+// Module: service-catalog
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  ONE_TIME
+}
+
+// Tiêu chí tính giá theo bậc của dịch vụ (G §3.4: theo quy mô hoặc số lượng chứng từ).
+enum PricingBasis {
+  NONE // Một mức giá, không theo bậc
+  DOCUMENT_COUNT // Số chứng từ mỗi tháng
+  ANNUAL_REVENUE // Doanh thu năm
+  EMPLOYEE_COUNT // Số lao động
+  OTHER // Khác, đơn vị nhập ở pricing_unit
+}
+
+model ServiceType {
+  id                String       @id @default(uuid()) @db.Uuid
+  code              String       @unique
+  name              String
+  description       String?
+  cycle             BillingCycle @default(MONTHLY)
+  defaultPrice      Decimal      @default(0) @map("default_price") @db.Decimal(18, 2)
+  pricingBasis      PricingBasis @default(NONE) @map("pricing_basis")
+  pricingUnit       String?      @map("pricing_unit")
+  isActive          Boolean      @default(true) @map("is_active")
+  /// Dịch vụ phát hành báo cáo kiểm toán: mỗi dòng HĐ có hồ sơ kiểm toán riêng (04-F, F1).
+  issuesAuditReport Boolean      @default(false) @map("issues_audit_report")
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  taskTemplates     TaskTemplate[]
+  contractServices  ContractService[]
+  priceLists        ServicePriceList[]
+  workflowTemplates WorkflowTemplate[]
+  obligationTypes   ServiceObligationType[]
+  urgencyThreshold  ServiceUrgencyThreshold?
+
+  @@map("service_types")
+}
+
+// Việc mẫu cũ (trước 03-B). Chỉ còn để đối chiếu/quay lui; nguồn sinh việc là phiên bản quy trình.
+model TaskTemplate {
+  id               String  @id @default(uuid()) @db.Uuid
+  serviceTypeId    String  @map("service_type_id") @db.Uuid
+  title            String
+  sortOrder        Int     @default(0) @map("sort_order")
+  dueDayOffset     Int     @default(0) @map("due_day_offset") // số ngày sau cuối kỳ
+  requiresEvidence Boolean @default(true) @map("requires_evidence")
+
+  serviceType ServiceType @relation(fields: [serviceTypeId], references: [id], onDelete: Cascade)
+
+  @@index([serviceTypeId])
+  @@map("task_templates")
+}
+
+// Bảng giá có ngày hiệu lực; tiêu chí được chụp lại từ dịch vụ lúc tạo.
+// Mỗi dịch vụ chỉ một bảng giá còn hiệu lực cho mỗi ngày (unique một phần trong migration).
+model ServicePriceList {
+  id            String       @id @default(uuid()) @db.Uuid
+  serviceTypeId String       @map("service_type_id") @db.Uuid
+  effectiveFrom DateTime     @map("effective_from") @db.Date
+  pricingBasis  PricingBasis @map("pricing_basis")
+  pricingUnit   String?      @map("pricing_unit")
+  note          String?
+  createdById   String?      @map("created_by_id") @db.Uuid
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt     DateTime?    @map("deleted_at") @db.Timestamptz
+
+  serviceType ServiceType        @relation(fields: [serviceTypeId], references: [id])
+  tiers       ServicePriceTier[]
+
+  @@index([serviceTypeId, effectiveFrom])
+  @@map("service_price_lists")
+}
+
+// Bậc giá nửa mở [min_value, max_value); max_value null = không giới hạn (chỉ bậc cuối).
+model ServicePriceTier {
+  id          String   @id @default(uuid()) @db.Uuid
+  priceListId String   @map("price_list_id") @db.Uuid
+  sortOrder   Int      @map("sort_order")
+  minValue    Decimal  @map("min_value") @db.Decimal(18, 2)
+  maxValue    Decimal? @map("max_value") @db.Decimal(18, 2)
+  unitPrice   Decimal  @map("unit_price") @db.Decimal(18, 2)
+  note        String?
+
+  priceList ServicePriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+
+  @@unique([priceListId, sortOrder])
+  @@map("service_price_tiers")
+}
+
+enum WorkflowVersionStatus {
+  DRAFT // Nháp
+  PUBLISHED // Đang hiệu lực
+  RETIRED // Ngừng
+}
+
+enum WorkflowScheduleMode {
+  PERIODIC // Theo kỳ: hạn = cuối kỳ + số ngày lệch (ngày lịch)
+  PROJECT // Theo dự án: thời lượng ngày làm việc nối theo phụ thuộc
+}
+
+// Quy trình mẫu QT-<mã DV>-NNN. Mỗi dịch vụ tối đa một quy trình mặc định (unique một phần).
+model WorkflowTemplate {
+  id            String    @id @default(uuid()) @db.Uuid
+  code          String    @unique
+  serviceTypeId String    @map("service_type_id") @db.Uuid
+  name          String
+  description   String?
+  isDefault     Boolean   @default(false) @map("is_default")
+  isActive      Boolean   @default(true) @map("is_active")
+  createdById   String?   @map("created_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz
+
+  serviceType ServiceType               @relation(fields: [serviceTypeId], references: [id])
+  versions    WorkflowTemplateVersion[]
+
+  @@index([serviceTypeId])
+  @@map("workflow_templates")
+}
+
+// Phiên bản quy trình. Tối đa một bản nháp và một bản đang hiệu lực mỗi quy trình (unique một phần).
+// Phiên bản đã phát hành/ngừng là bất biến.
+model WorkflowTemplateVersion {
+  id            String                @id @default(uuid()) @db.Uuid
+  templateId    String                @map("template_id") @db.Uuid
+  versionNo     Int                   @map("version_no")
+  status        WorkflowVersionStatus @default(DRAFT)
+  scheduleMode  WorkflowScheduleMode  @default(PERIODIC) @map("schedule_mode")
+  revision      Int                   @default(1)
+  note          String?
+  clonedFromId  String?               @map("cloned_from_id") @db.Uuid
+  publishedAt   DateTime?             @map("published_at") @db.Timestamptz
+  publishedById String?               @map("published_by_id") @db.Uuid
+  retiredAt     DateTime?             @map("retired_at") @db.Timestamptz
+  createdById   String?               @map("created_by_id") @db.Uuid
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime              @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt     DateTime?             @map("deleted_at") @db.Timestamptz
+
+  template     WorkflowTemplate          @relation(fields: [templateId], references: [id])
+  clonedFrom   WorkflowTemplateVersion?  @relation("VersionClone", fields: [clonedFromId], references: [id])
+  clones       WorkflowTemplateVersion[] @relation("VersionClone")
+  steps        WorkflowStep[]
+  requirements DocumentRequirement[]
+
+  @@unique([templateId, versionNo])
+  @@index([templateId, status])
+  @@map("workflow_template_versions")
+}
+
+// Một bước của phiên bản. stepKey (B01…) ổn định trong phiên bản, dùng cho phụ thuộc.
+// Người mặc định lưu id người dùng, được kiểm tra đang hoạt động khi lưu/phát hành.
+model WorkflowStep {
+  id                String  @id @default(uuid()) @db.Uuid
+  versionId         String  @map("version_id") @db.Uuid
+  stepKey           String  @map("step_key")
+  sortOrder         Int     @map("sort_order")
+  phase             String?
+  name              String
+  instructions      String?
+  required          Boolean @default(true)
+  durationDays      Int?    @map("duration_days")
+  dueOffsetDays     Int?    @map("due_offset_days")
+  performerRole     Role?   @map("performer_role")
+  defaultAssigneeId String? @map("default_assignee_id") @db.Uuid
+  reviewLevels      Int     @default(0) @map("review_levels")
+  reviewerRole      Role?   @map("reviewer_role")
+  defaultReviewerId String? @map("default_reviewer_id") @db.Uuid
+  defaultApproverId String? @map("default_approver_id") @db.Uuid
+  requiresEvidence  Boolean @default(true) @map("requires_evidence")
+  evidenceHint      String? @map("evidence_hint")
+  /// Hạn của bước là hạn pháp lý (G6) / cần xác nhận giao nộp sau phê duyệt (H1).
+  isStatutory       Boolean @default(false) @map("is_statutory")
+  requiresDelivery  Boolean @default(false) @map("requires_delivery")
+  /// Loại nghĩa vụ của bước pháp lý (06, I6): hạn việc = hạn nghĩa vụ của khách hàng cùng kỳ.
+  obligationTypeId  String? @map("obligation_type_id") @db.Uuid
+
+  version        WorkflowTemplateVersion  @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  obligationType ObligationType?          @relation(fields: [obligationTypeId], references: [id])
+  dependsOn      WorkflowStepDependency[] @relation("StepDependent")
+  requiredBy     WorkflowStepDependency[] @relation("StepPrerequisite")
+  requirements   DocumentRequirement[]
+
+  @@unique([versionId, stepKey])
+  @@unique([versionId, sortOrder])
+  @@map("workflow_steps")
+}
+
+// Bước step_id chỉ bắt đầu khi bước depends_on_step_id xong (kết thúc–bắt đầu).
+model WorkflowStepDependency {
+  stepId          String @map("step_id") @db.Uuid
+  dependsOnStepId String @map("depends_on_step_id") @db.Uuid
+
+  step      WorkflowStep @relation("StepDependent", fields: [stepId], references: [id], onDelete: Cascade)
+  dependsOn WorkflowStep @relation("StepPrerequisite", fields: [dependsOnStepId], references: [id], onDelete: Cascade)
+
+  @@id([stepId, dependsOnStepId])
+  @@index([dependsOnStepId])
+  @@map("workflow_step_dependencies")
+}
+
+// Hồ sơ cần thu cho dịch vụ (đặc tả 03-C, PL1 V.1), thuộc phiên bản quy trình nên bất biến cùng phiên bản.
+// Bước gắn hồ sơ bắt buộc thì hồ sơ là điều kiện bắt đầu bước (05 áp dụng khi thực hiện).
+model DocumentRequirement {
+  id           String           @id @default(uuid()) @db.Uuid
+  versionId    String           @map("version_id") @db.Uuid
+  sortOrder    Int              @map("sort_order")
+  name         String
+  instructions String?
+  required     Boolean          @default(true)
+  category     DocumentCategory @default(SERVICE)
+  perPeriod    Boolean          @default(false) @map("per_period")
+  stepId       String?          @map("step_id") @db.Uuid
+
+  version WorkflowTemplateVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  step    WorkflowStep?           @relation(fields: [stepId], references: [id], onDelete: SetNull)
+
+  @@unique([versionId, sortOrder])
+  @@index([stepId])
+  @@map("document_requirements")
+}

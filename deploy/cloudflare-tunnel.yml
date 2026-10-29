@@ -1,0 +1,26 @@
+# Overlay for compose.app.yml: exposes the web service through a dedicated Cloudflare Tunnel.
+#   docker-compose --env-file .env.app -p <project> -f compose.app.yml -f deploy/cloudflare-tunnel.yml up -d --build
+# Requires ./cloudflared (created by deploy/new-tunnel-site.sh) and APP_ORIGIN=https://<hostname> in .env.app.
+# The web port stays on 127.0.0.1:${APP_WEB_PORT} for internal checks; public traffic goes through the tunnel.
+services:
+  database:
+    restart: unless-stopped
+
+  api:
+    restart: unless-stopped
+
+  web:
+    restart: unless-stopped
+
+  tunnel:
+    image: cloudflare/cloudflared:2026.7.2
+    restart: unless-stopped
+    user: "1000:1000"
+    depends_on:
+      - web
+    command: ["--no-autoupdate", "--config", "/etc/cloudflared/config.yml", "tunnel", "run"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+      - ./cloudflared/credentials.json:/etc/cloudflared/credentials.json:ro

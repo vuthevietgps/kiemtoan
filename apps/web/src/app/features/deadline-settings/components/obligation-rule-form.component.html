@@ -1,0 +1,103 @@
+<form class="grid" [formGroup]="form" (ngSubmit)="submit()">
+  @if (mode() === 'create') {
+    <label>
+      {{ text.code }}
+      <input nz-input formControlName="code" maxlength="30" placeholder="GTGT-THANG" />
+    </label>
+    <label>
+      {{ text.name }}
+      <input nz-input formControlName="name" maxlength="200" />
+    </label>
+    <label>
+      {{ text.group }}
+      <nz-select formControlName="group">
+        @for (g of groups; track g.value) {
+          <nz-option [nzValue]="g.value" [nzLabel]="g.label" />
+        }
+      </nz-select>
+    </label>
+    <label>
+      {{ text.cycle }}
+      <nz-select formControlName="cycle">
+        @for (c of cycles; track c.value) {
+          <nz-option [nzValue]="c.value" [nzLabel]="c.label" />
+        }
+      </nz-select>
+    </label>
+    <label class="wide">
+      {{ text.family }}
+      <input nz-input formControlName="family" maxlength="30" [placeholder]="text.familyHint" />
+    </label>
+  }
+
+  <label>
+    {{ text.effectiveFrom }}
+    <nz-date-picker nzFormat="dd/MM/yyyy" [nzAllowClear]="false" formControlName="effectiveFrom" />
+  </label>
+  <label>
+    {{ text.dueRule }}
+    <nz-select formControlName="dueRule">
+      @for (r of rules; track r.value) {
+        <nz-option [nzValue]="r.value" [nzLabel]="r.label" [nzDisabled]="r.value === 'FIXED_IN_YEAR' && !yearly()" />
+      }
+    </nz-select>
+  </label>
+  @if (fixed()) {
+    <label>
+      {{ text.dueMonth }}
+      <nz-input-number formControlName="dueMonth" [nzMin]="1" [nzMax]="12" />
+    </label>
+  } @else {
+    <label>
+      {{ text.monthsAfter }}
+      <nz-input-number formControlName="monthsAfter" [nzMin]="0" [nzMax]="24" />
+    </label>
+  }
+  <label>
+    {{ text.dueDay }}
+    <nz-input-number formControlName="dueDay" [nzMin]="1" [nzMax]="31" />
+  </label>
+  <label>
+    {{ text.holidayShift }}
+    <nz-select formControlName="holidayShift">
+      @for (s of shifts; track s.value) {
+        <nz-option [nzValue]="s.value" [nzLabel]="s.label" />
+      }
+    </nz-select>
+  </label>
+  <label class="check">
+    <label nz-checkbox formControlName="useFiscalYear">{{ text.useFiscalYear }}</label>
+  </label>
+
+  <fieldset class="wide" formGroupName="conditions">
+    <legend>{{ text.conditions }}</legend>
+    <div class="grid">
+      @for (f of conditionFields; track f.key) {
+        <label>
+          {{ f.label }}
+          <nz-select nzMode="multiple" [formControlName]="f.key" nzAllowClear>
+            @for (c of f.choices; track c.value) {
+              <nz-option [nzValue]="c.value" [nzLabel]="c.label" />
+            }
+          </nz-select>
+        </label>
+      }
+    </div>
+  </fieldset>
+
+  <label class="wide">
+    {{ text.legalBasis }}
+    <textarea nz-input rows="2" maxlength="1000" formControlName="legalBasis"></textarea>
+  </label>
+  <label class="wide">
+    {{ text.note }}
+    <textarea nz-input rows="2" maxlength="1000" formControlName="note"></textarea>
+  </label>
+
+  <div class="actions wide">
+    <button nz-button type="button" (click)="cancelled.emit()">{{ text.cancel }}</button>
+    <button nz-button nzType="primary" type="submit" [disabled]="invalid()" [nzLoading]="busy()">
+      {{ mode() === 'create' ? text.addType : text.saveDraft }}
+    </button>
+  </div>
+</form>

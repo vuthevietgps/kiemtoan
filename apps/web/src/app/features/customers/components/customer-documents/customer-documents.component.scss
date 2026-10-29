@@ -1,0 +1,7 @@
+.filters, .upload-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; align-items: center; }
+.filters input, .upload-bar input { width: 220px; max-width: 100%; }
+nz-select { min-width: 180px; max-width: 100%; }
+td { overflow-wrap: anywhere; }
+td button { margin: 3px; }
+label { display: block; max-width: 100%; }
+.error { color: #cf1322; }

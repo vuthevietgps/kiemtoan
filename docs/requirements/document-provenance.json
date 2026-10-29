@@ -1,0 +1,79 @@
+[
+  {
+    "original": "C:\\Users\\PC\\Downloads\\Tài liệu mô tả chức năng – Phần mềm quản lý công ty dịch vụ Kế toán & Kiểm toán.pdf",
+    "destination": "docs/requirements/sources/functional-description-original.pdf",
+    "sha256": "35D28217F13803B678E95F1ADE9C7689F5715C0182FCF841DEB020323FEE3948",
+    "operation": "copy",
+    "date": "2026-10-15"
+  },
+  {
+    "original": "C:\\Users\\PC\\Downloads\\Cau_hoi_lam_ro_yeu_cau.docx",
+    "destination": "docs/requirements/sources/clarifications-answered-2026-10-15.docx",
+    "sha256": "5FEACB31EF5CC2C42588E12288E363EAA2168C102068740A8F537F491593BDBE",
+    "operation": "copy",
+    "date": "2026-10-15"
+  },
+  {
+    "original": "C:\\Users\\PC\\Documents\\code\\kiểm toán\\Cau_hoi_lam_ro_yeu_cau.docx",
+    "destination": "docs/archive/2026-10-15/clarifications-before-answers.docx",
+    "sha256": "98F04C99406D8B382E227B93E21453DF7FFF82A90DF02FC9DD6C198A6016CE97",
+    "operation": "move",
+    "date": "2026-10-15"
+  },
+  {
+    "original": "C:\\Users\\PC\\Documents\\code\\kiểm toán\\output\\pdf\\Tai_lieu_mo_ta_chuc_nang_tich_hop_2026-10-15.pdf",
+    "destination": "docs/requirements/functional-description-integrated-2026-10-15.pdf",
+    "sha256": "EDE6636F3E5A1C6A0B56FC70AEA3A5814F205D3508ABF75352B3235178CBF7FA",
+    "operation": "move",
+    "date": "2026-10-15"
+  },
+  {
+    "original": "C:\\Users\\PC\\Documents\\code\\kiểm toán\\output\\documents\\De_xuat_ERP_Ke_toan_Kiem_toan.docx",
+    "destination": "docs/archive/proposals/De_xuat_ERP_Ke_toan_Kiem_toan.docx",
+    "sha256": "B1AE02D0CAC1D041F3842BB98313E4540D97C058E3C1E3AC635F88BCE3205AE5",
+    "operation": "move",
+    "date": "2026-10-15"
+  },
+  {
+    "original": "C:\\Users\\PC\\Documents\\code\\kiểm toán\\output\\pdf\\De_xuat_ERP_Ke_toan_Kiem_toan.pdf",
+    "destination": "docs/archive/proposals/De_xuat_ERP_Ke_toan_Kiem_toan.pdf",
+    "sha256": "8F98EB5C3B4283E73A43B3D1AEAC4D7DF786078590CF4F837B6DC220A9418246",
+    "operation": "move",
+    "date": "2026-10-15"
+  },
+  {
+    "original": "C:\\Users\\PC\\Documents\\code\\kiểm toán\\output\\documents\\De_xuat_phan_mem_Ke_toan_Kiem_toan_ban_ro_rang.docx",
+    "destination": "docs/archive/proposals/De_xuat_phan_mem_Ke_toan_Kiem_toan_ban_ro_rang.docx",
+    "sha256": "E1A85FC8D74868706AB7118346903FFBE64477A25E6F28EDCCAD9B4F9C0C5061",
+    "operation": "move",
+    "date": "2026-10-15"
+  },
+  {
+    "original": "C:\\Users\\PC\\Documents\\code\\kiểm toán\\output\\pdf\\De_xuat_phan_mem_Ke_toan_Kiem_toan_ban_ro_rang.pdf",
+    "destination": "docs/archive/proposals/De_xuat_phan_mem_Ke_toan_Kiem_toan_ban_ro_rang.pdf",
+    "sha256": "C9B30C7D00A8C4A344E13598C57C3F018E48F8EDF826F1E75EDC7875FFD0A90D",
+    "operation": "move",
+    "date": "2026-10-15"
+  },
+  {
+    "original": "C:\\Users\\PC\\Documents\\code\\kiểm toán\\output\\documents\\De_xuat_phat_trien_phan_mem_Ke_toan_Kiem_toan.docx",
+    "destination": "docs/archive/proposals/De_xuat_phat_trien_phan_mem_Ke_toan_Kiem_toan.docx",
+    "sha256": "C36D95358E7F22A300038E675A83BC9B240E22980FD747DAAE33A6B24565BD36",
+    "operation": "move",
+    "date": "2026-10-15"
+  },
+  {
+    "original": "C:\\Users\\PC\\Documents\\code\\kiểm toán\\output\\pdf\\De_xuat_phat_trien_phan_mem_Ke_toan_Kiem_toan.pdf",
+    "destination": "docs/archive/proposals/De_xuat_phat_trien_phan_mem_Ke_toan_Kiem_toan.pdf",
+    "sha256": "12AF225C794A33E2E035FE661F0E2475413FB5725046012489A4184DB85A2CA8",
+    "operation": "move",
+    "date": "2026-10-15"
+  },
+  {
+    "original": "C:\\Users\\PC\\Documents\\code\\kiểm toán\\Bao-cao-nghien-cuu-Google-Ads-kiemtoanvsa.pdf",
+    "destination": "docs/references/marketing/Bao-cao-nghien-cuu-Google-Ads-kiemtoanvsa.pdf",
+    "sha256": "7AB3BC0BC2D225BEE9068560262902C17701EB9F119601252C5F5529A40C349C",
+    "operation": "move",
+    "date": "2026-10-15"
+  }
+]

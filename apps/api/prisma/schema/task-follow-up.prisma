@@ -1,0 +1,147 @@
+// Module: tasks — 05-D: hồ sơ yêu cầu của khách, khoảng chờ khách, gia hạn việc.
+// Khách hàng/HĐ/dòng dịch vụ/người dùng lưu bằng id (kiểm tra ở service) để không thêm quan hệ ngược
+// vào module khác.
+
+// 6 trạng thái hồ sơ yêu cầu (PL1 V.2). Chưa có cổng khách hàng (QD00): nhân viên ghi nhận và tải thay.
+enum DocumentRequestStatus {
+  NOT_REQUESTED // Chưa yêu cầu
+  REQUESTED // Đã yêu cầu
+  UPLOADED // Khách hàng đã tải lên
+  IN_REVIEW // Đang kiểm tra
+  NEEDS_SUPPLEMENT // Cần bổ sung
+  ACCEPTED // Đã chấp nhận
+}
+
+enum DueChangeStatus {
+  PENDING // Chờ duyệt
+  APPROVED // Đã duyệt
+  REJECTED // Từ chối
+}
+
+// Hồ sơ cần thu của khách theo dòng dịch vụ × kỳ, sinh từ hồ sơ yêu cầu của kế hoạch (04-B) hoặc do
+// người làm tạo khi chuyển việc sang Chờ khách (H4).
+model CustomerDocumentRequest {
+  id                String                @id @default(uuid()) @db.Uuid
+  customerId        String                @map("customer_id") @db.Uuid
+  contractId        String?               @map("contract_id") @db.Uuid
+  contractServiceId String?               @map("contract_service_id") @db.Uuid
+  planRequirementId String?               @map("plan_requirement_id") @db.Uuid
+  /// Việc tạo yêu cầu này khi chuyển tay sang Chờ khách (việc phát sinh, không có bước kế hoạch).
+  taskId            String?               @map("task_id") @db.Uuid
+  /// Kỳ áp dụng; hồ sơ "một lần" lưu kỳ đầu và áp cho mọi kỳ (perPeriod = false).
+  period            String?
+  perPeriod         Boolean               @default(true) @map("per_period")
+  /// Bước kế hoạch cần hồ sơ này (null = không gắn bước, không chặn việc).
+  stepKey           String?               @map("step_key")
+  name              String
+  instructions      String?
+  required          Boolean               @default(true)
+  category          DocumentCategory      @default(SERVICE)
+  status            DocumentRequestStatus @default(NOT_REQUESTED)
+  requestedAt       DateTime?             @map("requested_at") @db.Date
+  requestMethod     String?               @map("request_method")
+  /// Hạn khách cần gửi (tuỳ chọn).
+  clientDueDate     DateTime?             @map("client_due_date") @db.Date
+  /// Nội dung "Cần bổ sung" gần nhất.
+  supplementNote    String?               @map("supplement_note")
+  createdById       String?               @map("created_by_id") @db.Uuid
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz
+
+  events CustomerDocumentRequestEvent[]
+  files  CustomerDocumentRequestFile[]
+
+  @@unique([planRequirementId, period])
+  @@index([contractServiceId, period])
+  @@index([customerId, status])
+  @@map("customer_document_requests")
+}
+
+// Lịch sử trạng thái hồ sơ yêu cầu: chỉ thêm.
+model CustomerDocumentRequestEvent {
+  id         String                 @id @default(uuid()) @db.Uuid
+  requestId  String                 @map("request_id") @db.Uuid
+  fromStatus DocumentRequestStatus? @map("from_status")
+  toStatus   DocumentRequestStatus  @map("to_status")
+  actorId    String?                @map("actor_id") @db.Uuid
+  note       String?
+  occurredAt DateTime               @default(now()) @map("occurred_at") @db.Timestamptz
+
+  request CustomerDocumentRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, occurredAt])
+  @@map("customer_document_request_events")
+}
+
+// File khách nộp (kho hồ sơ 02, nhóm Tài liệu dịch vụ) gắn với hồ sơ yêu cầu.
+model CustomerDocumentRequestFile {
+  requestId  String   @map("request_id") @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  request CustomerDocumentRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@id([requestId, documentId])
+  @@map("customer_document_request_files")
+}
+
+// Khoảng chờ khách (H4, G5): mở khi vào Chờ khách, đóng khi ra. Trưởng nhóm xác nhận thì số ngày chờ
+// được trừ vào hạn nội bộ khi đánh giá (10); không đổi hạn hiển thị, không trừ hạn pháp lý.
+model TaskClientWait {
+  id            String     @id @default(uuid()) @db.Uuid
+  taskId        String     @map("task_id") @db.Uuid
+  /// Tự động do hồ sơ bắt buộc chưa đủ (true) hay người làm chuyển tay (false).
+  automatic     Boolean    @default(true)
+  /// Trạng thái để quay về khi hết chờ.
+  fromStatus    TaskStatus @map("from_status")
+  requestId     String?    @map("request_id") @db.Uuid
+  note          String?
+  startedAt     DateTime   @default(now()) @map("started_at") @db.Timestamptz
+  endedAt       DateTime?  @map("ended_at") @db.Timestamptz
+  confirmedById String?    @map("confirmed_by_id") @db.Uuid
+  confirmedAt   DateTime?  @map("confirmed_at") @db.Timestamptz
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, startedAt])
+  @@map("task_client_waits")
+}
+
+// Đề nghị/duyệt gia hạn việc (H7, G3): lịch sử không sửa/xoá; hạn gốc của việc giữ nguyên.
+model TaskDueChange {
+  id               String          @id @default(uuid()) @db.Uuid
+  taskId           String          @map("task_id") @db.Uuid
+  oldDue           DateTime        @map("old_due") @db.Date
+  newDue           DateTime        @map("new_due") @db.Date
+  reason           String
+  /// Gia hạn theo văn bản của cơ quan cho bước có hạn pháp lý (Giám đốc ghi nhận) — đếm riêng.
+  documented       Boolean         @default(false)
+  /// Đổi hạn theo lịch pháp lý/lịch làm việc mới (06, I8) — không phải gia hạn, không đếm vào số lần gia hạn.
+  calendarAdjusted Boolean         @default(false) @map("calendar_adjusted")
+  status           DueChangeStatus @default(PENDING)
+  requestedById    String          @map("requested_by_id") @db.Uuid
+  requestedAt      DateTime        @default(now()) @map("requested_at") @db.Timestamptz
+  decidedById      String?         @map("decided_by_id") @db.Uuid
+  decidedAt        DateTime?       @map("decided_at") @db.Timestamptz
+  decisionNote     String?         @map("decision_note")
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, requestedAt])
+  @@index([status])
+  @@map("task_due_changes")
+}
+
+// Bình luận trên việc (05-E, H11 — không @nhắc tên): chỉ thêm, không sửa/xoá.
+model TaskComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  content   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+  @@map("task_comments")
+}

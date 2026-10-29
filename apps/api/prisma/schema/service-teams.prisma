@@ -1,0 +1,56 @@
+// Nhóm thực hiện cho dòng dịch vụ không phát hành BCKT (đặc tả 05, H8/G1). Dòng kiểm toán dùng
+// nhóm của 04-F. Người dùng lưu bằng id, kiểm tra còn hoạt động ở service (như 04-F).
+
+enum ServiceTeamRole {
+  MANAGER
+  LEAD // Trưởng nhóm
+  ASSISTANT // Trợ lý
+}
+
+model ServiceTeam {
+  id                String   @id @default(uuid()) @db.Uuid
+  contractServiceId String   @unique @map("contract_service_id") @db.Uuid
+  managerId         String?  @map("manager_id") @db.Uuid
+  leadId            String?  @map("lead_id") @db.Uuid
+  revision          Int      @default(1)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  contractService ContractService          @relation(fields: [contractServiceId], references: [id], onDelete: Cascade)
+  members         ServiceTeamMember[]
+  roleHistory     ServiceTeamRoleHistory[]
+
+  @@index([managerId])
+  @@index([leadId])
+  @@map("service_teams")
+}
+
+// Trợ lý hiện tại của nhóm.
+model ServiceTeamMember {
+  id        String @id @default(uuid()) @db.Uuid
+  teamId    String @map("team_id") @db.Uuid
+  userId    String @map("user_id") @db.Uuid
+  sortOrder Int    @map("sort_order")
+
+  team ServiceTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+  @@map("service_team_members")
+}
+
+// Ai giữ vai nào từ lúc nào đến lúc nào — để tính trách nhiệm đúng hạn (G1, như 04-F2).
+model ServiceTeamRoleHistory {
+  id     String          @id @default(uuid()) @db.Uuid
+  teamId String          @map("team_id") @db.Uuid
+  role   ServiceTeamRole
+  userId String          @map("user_id") @db.Uuid
+  fromAt DateTime        @default(now()) @map("from_at") @db.Timestamptz
+  toAt   DateTime?       @map("to_at") @db.Timestamptz
+
+  team ServiceTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, role])
+  @@index([userId])
+  @@map("service_team_role_history")
+}

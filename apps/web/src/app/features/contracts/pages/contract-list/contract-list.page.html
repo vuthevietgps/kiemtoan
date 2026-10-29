@@ -1,0 +1,86 @@
+<app-page-header title="Hợp đồng" subtitle="Hợp đồng dịch vụ trong phạm vi bạn phụ trách">
+  <a nz-button routerLink="/contracts/audit-tracking">Theo dõi kiểm toán</a>
+  <a nz-button *appCan="'contracts:approve'" routerLink="/contracts/templates">
+    <nz-icon nzType="file-text" /> Mẫu hồ sơ
+  </a>
+  <a nz-button nzType="primary" *appCan="'contracts:create'" routerLink="/contracts/new">
+    <nz-icon nzType="plus" /> Tạo hợp đồng
+  </a>
+</app-page-header>
+
+<app-expiring-contracts-panel />
+
+<div class="panel">
+  <div class="filters">
+    <nz-input-group [nzSuffix]="searchIcon">
+      <input
+        nz-input
+        placeholder="Tìm theo mã HĐ hoặc tên khách hàng"
+        [(ngModel)]="search"
+        (keyup.enter)="applyFilter()"
+      />
+    </nz-input-group>
+    <ng-template #searchIcon><nz-icon nzType="search" /></ng-template>
+    <nz-select
+      nzPlaceHolder="Tất cả trạng thái"
+      nzAllowClear
+      [(ngModel)]="status"
+      (ngModelChange)="applyFilter()"
+    >
+      @for (o of statusOptions; track o.value) {
+        <nz-option [nzValue]="o.value" [nzLabel]="o.label" />
+      }
+    </nz-select>
+    <button nz-button (click)="applyFilter()">Tìm</button>
+  </div>
+
+  <nz-table
+    #table
+    [nzData]="items()"
+    [nzLoading]="loading()"
+    [nzFrontPagination]="false"
+    [nzTotal]="total()"
+    [nzPageIndex]="page()"
+    [nzPageSize]="pageSize()"
+    [nzShowSizeChanger]="true"
+    [nzScroll]="{ x: '1000px' }"
+    nzSize="middle"
+    (nzQueryParams)="onQueryParams($event)"
+  >
+    <thead>
+      <tr>
+        <th nzWidth="130px">Mã HĐ</th>
+        <th>Khách hàng</th>
+        <th>Loại dịch vụ</th>
+        <th *appCan="'finance:view'" nzWidth="150px" class="text-right">Giá trị trước VAT</th>
+        <th *appCan="'finance:view'" nzWidth="150px" class="text-right">Tổng thanh toán</th>
+        <th nzWidth="140px">Trạng thái</th>
+        <th *appCan="'finance:view'" nzWidth="170px">Thanh toán</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (c of table.data; track c.id) {
+        <tr>
+          <td>
+            <a [routerLink]="['/contracts', c.id]">{{ c.code }}</a>
+          </td>
+          <td>{{ c.customer.name }}</td>
+          <td>{{ c.serviceTypes.join(', ') }}</td>
+          <td *appCan="'finance:view'" class="text-right">{{ c.subtotal | vnd }}</td>
+          <td *appCan="'finance:view'" class="text-right">{{ c.total | vnd }}</td>
+          <td>
+            <nz-tag [nzColor]="statusColors[c.status]">{{ statusLabels[c.status] }}</nz-tag>
+          </td>
+          <td *appCan="'finance:view'">
+            <app-payment-tag
+              [status]="c.paymentStatus"
+              [contractStatus]="c.status"
+              [total]="c.total"
+              [paid]="c.paidAmount"
+            />
+          </td>
+        </tr>
+      }
+    </tbody>
+  </nz-table>
+</div>

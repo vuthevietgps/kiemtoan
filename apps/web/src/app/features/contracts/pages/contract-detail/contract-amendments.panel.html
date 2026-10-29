@@ -1,0 +1,176 @@
+<div class="panel">
+  <h3>{{ text.title }}</h3>
+  <p class="text-muted">{{ text.hint }}</p>
+  @if (store.error(); as error) {
+    <nz-alert nzType="error" nzShowIcon [nzMessage]="error" style="margin-bottom: 8px" />
+  }
+  @if (canEdit()) {
+    <button
+      nz-button
+      nzType="primary"
+      [disabled]="store.busy()"
+      (click)="open('new')"
+      style="margin-bottom: 12px"
+    >
+      {{ text.create }}
+    </button>
+  }
+  @if (!store.items().length && !store.loading()) {
+    <p class="text-muted">{{ text.empty }}</p>
+  }
+  <nz-collapse>
+    @for (a of store.items(); track a.id) {
+      <nz-collapse-panel [nzHeader]="header">
+        <ng-template #header>
+          <b>{{ a.code }}</b
+          >&nbsp;{{ a.title }}&nbsp;
+          <nz-tag [nzColor]="statusLabels[a.status].color">{{
+            statusLabels[a.status].label
+          }}</nz-tag>
+          @if (a.approvedAt) {
+            <span class="text-muted">{{ a.approvedAt | date: 'dd/MM/yyyy' }}</span>
+          }
+        </ng-template>
+        @if (a.status === 'DRAFT' && a.returnedReason) {
+          <nz-alert
+            nzType="warning"
+            [nzMessage]="text.returnToDraft + ': ' + a.returnedReason"
+            style="margin-bottom: 8px"
+          />
+        }
+        @if (a.content) {
+          <p>{{ a.content }}</p>
+        }
+        <nz-table
+          [nzData]="a.lines"
+          [nzShowPagination]="false"
+          [nzFrontPagination]="false"
+          nzSize="small"
+          [nzScroll]="{ x: '600px' }"
+        >
+          <thead>
+            <tr>
+              <th nzWidth="80px">{{ text.action }}</th>
+              <th>{{ text.service }}</th>
+              <th nzWidth="90px">{{ text.period }}</th>
+              <th nzWidth="60px" class="text-right">{{ text.quantity }}</th>
+              @if (finance()) {
+                <th nzWidth="130px" class="text-right">{{ text.unitPrice }}</th>
+                <th nzWidth="140px" class="text-right">{{ text.amount }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (l of a.lines; track l.id) {
+              <tr>
+                <td>{{ actionLabels[l.action] }}</td>
+                <td>{{ l.serviceType?.name ?? '—' }}</td>
+                <td>{{ l.period ?? '' }}</td>
+                <td class="text-right">{{ l.action === 'REMOVE' ? '' : l.quantity }}</td>
+                @if (finance()) {
+                  <td class="text-right">{{ l.action === 'REMOVE' ? '' : (l.unitPrice | vnd) }}</td>
+                  <td class="text-right">{{ l.action === 'REMOVE' ? '' : (l.amount | vnd) }}</td>
+                }
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+        @if (finance()) {
+          <div class="totals">
+            @if (a.before?.total) {
+              <span
+                >{{ text.before }}: <b>{{ a.before?.total | vnd }}</b></span
+              >
+            }
+            <span
+              >{{ text.after }} ({{ text.total }}):
+              <b>{{ a.after?.total ?? a.total | vnd }}</b></span
+            >
+          </div>
+          @if (a.status !== 'APPROVED' && a.status !== 'CANCELLED' && a.installments?.length) {
+            <div class="text-muted">{{ text.schedule }}:</div>
+            <ul>
+              @for (i of a.installments; track $index) {
+                <li>
+                  {{ i.name }} — {{ i.amount | vnd }} — {{ text.due }}
+                  {{ i.dueDate | date: 'dd/MM/yyyy' }}
+                </li>
+              }
+            </ul>
+          }
+        }
+        @if (a.status === 'APPROVED' && a.lines.some(isAdd)) {
+          <p class="text-muted">{{ text.newLinesHint }}</p>
+        }
+        <div class="actions">
+          @if (canEdit() && a.status === 'DRAFT') {
+            <button nz-button [disabled]="store.busy()" (click)="open(a)">{{ text.edit }}</button>
+            <button nz-button nzType="primary" [disabled]="store.busy()" (click)="act(a, 'submit')">
+              {{ text.submit }}
+            </button>
+          }
+          @if (canApprove() && a.status === 'PENDING_APPROVAL') {
+            <button nz-button nzType="primary" [disabled]="store.busy()" (click)="approve(a)">
+              {{ text.approve }}
+            </button>
+            <button nz-button [disabled]="store.busy()" (click)="openReturn(a)">
+              {{ text.returnToDraft }}
+            </button>
+          }
+          @if (canEdit() && (a.status === 'DRAFT' || a.status === 'PENDING_APPROVAL')) {
+            <button nz-button nzDanger [disabled]="store.busy()" (click)="act(a, 'cancel')">
+              {{ text.cancel }}
+            </button>
+          }
+        </div>
+      </nz-collapse-panel>
+    }
+  </nz-collapse>
+</div>
+
+<nz-modal
+  [nzVisible]="!!editing()"
+  [nzTitle]="text.title"
+  [nzFooter]="null"
+  [nzWidth]="900"
+  (nzOnCancel)="editing.set(null)"
+>
+  <ng-container *nzModalContent>
+    @if (editing(); as current) {
+      <app-amendment-editor
+        [services]="contract().services"
+        [serviceTypes]="store.serviceTypes()"
+        [initial]="initialOf(current)"
+        [busy]="store.busy()"
+        (save)="save($event)"
+        (cancelled)="editing.set(null)"
+      />
+      @if (store.error(); as error) {
+        <nz-alert nzType="error" [nzMessage]="error" style="margin-top: 8px" />
+      }
+    }
+  </ng-container>
+</nz-modal>
+
+<nz-modal
+  [nzVisible]="!!returning()"
+  [nzTitle]="text.returnToDraft"
+  [nzOkText]="text.returnToDraft"
+  [nzCancelText]="text.close"
+  [nzOkDisabled]="returnReason().trim().length < 5"
+  [nzOkLoading]="store.busy()"
+  (nzOnOk)="confirmReturn()"
+  (nzOnCancel)="returning.set(null)"
+>
+  <ng-container *nzModalContent>
+    <label for="amendment-return">{{ text.returnReason }}</label>
+    <textarea
+      id="amendment-return"
+      nz-input
+      rows="3"
+      maxlength="500"
+      [ngModel]="returnReason()"
+      (ngModelChange)="returnReason.set($event)"
+    ></textarea>
+  </ng-container>
+</nz-modal>

@@ -1,0 +1,194 @@
+@let c = contract();
+<div class="panel">
+  <h3>Đợt thanh toán</h3>
+  <nz-table
+    [nzData]="c.installments"
+    [nzShowPagination]="false"
+    [nzScroll]="{ x: '680px' }"
+    nzSize="small"
+  >
+    <thead>
+      <tr>
+        <th>Đợt</th>
+        <th nzWidth="220px">Hạn thanh toán</th>
+        <th nzWidth="150px" class="text-right">Số tiền</th>
+        <th nzWidth="150px" class="text-right">Đã thu</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (i of c.installments; track i.id) {
+        <tr>
+          <td>{{ i.name }}</td>
+          <td>
+            @if (i.awaitingMilestone) {
+              <!-- J10: chưa phát hành BCKT — chưa có hạn, không tính quá hạn -->
+              <nz-tag nzColor="blue">Chờ phát hành BCKT</nz-tag>
+              <div class="text-muted small">
+                +{{ i.dueOffsetDays }} ngày · dự kiến {{ i.dueDate | date: 'dd/MM/yyyy' }}
+              </div>
+            } @else {
+              {{ i.dueDate | date: 'dd/MM/yyyy' }}
+              @if (i.dueRule === 'AFTER_REPORT_ISSUE') {
+                <div class="text-muted small">
+                  {{ i.dueOffsetDays }} ngày sau phát hành {{ i.milestoneDate | date: 'dd/MM/yyyy' }}
+                </div>
+              }
+              @if (i.overdueDays) {
+                <nz-tag nzColor="red">Quá hạn {{ i.overdueDays }} ngày</nz-tag>
+              }
+            }
+          </td>
+          <td class="text-right">{{ i.amount | vnd }}</td>
+          <td class="text-right">{{ i.paidAmount | vnd }}</td>
+        </tr>
+      }
+    </tbody>
+  </nz-table>
+</div>
+
+<div class="panel">
+  <nz-tabs>
+    <nz-tab [nzTitle]="'Thu tiền (' + c.payments.length + ')'">
+      <div class="collect">
+        @if (canCollect()) {
+          <button
+            nz-button
+            nzType="primary"
+            *appCan="'payments:create'"
+            (click)="paymentVisible.set(true)"
+          >
+            <nz-icon nzType="dollar" /> {{ paymentText.newPayment }}
+          </button>
+        }
+        <span class="text-muted">
+          Đã thu (đã duyệt): <b>{{ c.paidAmount | vnd }}</b>
+          @if (+c.pendingAmount > 0) {
+            · Chờ duyệt: <b>{{ c.pendingAmount | vnd }}</b>
+          }
+          @if (+c.overdueAmount > 0) {
+            · <span class="danger">Quá hạn: <b>{{ c.overdueAmount | vnd }}</b></span>
+          }
+        </span>
+      </div>
+      <nz-table
+        [nzData]="c.payments"
+        [nzShowPagination]="false"
+        [nzScroll]="{ x: '860px' }"
+        nzSize="small"
+      >
+        <thead>
+          <tr>
+            <th nzWidth="120px">Mã phiếu</th>
+            <th nzWidth="110px">Ngày thu</th>
+            <th nzWidth="140px" class="text-right">Số tiền</th>
+            <th nzWidth="120px">Hình thức</th>
+            <th nzWidth="110px">Trạng thái</th>
+            <th>Đợt / ghi chú</th>
+            <th nzWidth="150px">Người lập</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of c.payments; track p.id) {
+            <tr class="clickable" (click)="openPayment(p.id)">
+              <td><a>{{ p.code }}</a></td>
+              <td>{{ p.paidDate | date: 'dd/MM/yyyy' }}</td>
+              <td class="text-right">{{ p.amount | vnd }}</td>
+              <td>{{ methodLabels[p.method] }}</td>
+              <td>
+                <nz-tag [nzColor]="stateColors[p.status]">{{ stateLabels[p.status] }}</nz-tag>
+              </td>
+              <td>{{ p.installment?.name ?? '' }} {{ p.note ?? '' }}</td>
+              <td>{{ p.receivedBy.fullName }}</td>
+            </tr>
+          }
+        </tbody>
+      </nz-table>
+    </nz-tab>
+
+    <nz-tab [nzTitle]="'Hoá đơn (' + c.invoices.length + ')'">
+      @if (uninvoiced() > 0 && c.status !== 'DRAFT' && c.status !== 'CANCELLED') {
+        <button
+          nz-button
+          nzType="primary"
+          *appCan="'invoices:create'"
+          style="margin-bottom: 12px"
+          (click)="invoiceVisible.set(true)"
+        >
+          <nz-icon nzType="file-add" /> Đề nghị xuất hoá đơn
+        </button>
+      }
+      <nz-table
+        [nzData]="c.invoices"
+        [nzShowPagination]="false"
+        [nzScroll]="{ x: '760px' }"
+        nzSize="small"
+      >
+        <thead>
+          <tr>
+            <th nzWidth="150px">Ký hiệu / Số</th>
+            <th nzWidth="120px">Ngày phát hành</th>
+            <th nzWidth="140px" class="text-right">Trước VAT</th>
+            <th nzWidth="140px" class="text-right">Tổng tiền</th>
+            <th nzWidth="130px">Trạng thái</th>
+            <th>Ghi chú</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (inv of c.invoices; track inv.id) {
+            <tr>
+              <td>{{ inv.symbol ? inv.symbol + ' / ' + inv.number : '—' }}</td>
+              <td>{{ (inv.issueDate | date: 'dd/MM/yyyy') ?? '—' }}</td>
+              <td class="text-right">{{ inv.subtotal | vnd }}</td>
+              <td class="text-right">{{ inv.total | vnd }}</td>
+              <td>
+                <nz-tag [nzColor]="invoiceColors[inv.status]">{{
+                  invoiceLabels[inv.status]
+                }}</nz-tag>
+              </td>
+              <td>{{ inv.note ?? '' }}</td>
+            </tr>
+          }
+        </tbody>
+      </nz-table>
+    </nz-tab>
+  </nz-tabs>
+</div>
+
+<nz-modal
+  [nzVisible]="paymentVisible()"
+  [nzTitle]="paymentText.newPayment"
+  [nzFooter]="null"
+  (nzOnCancel)="paymentVisible.set(false)"
+>
+  <ng-container *nzModalContent>
+    @if (paymentVisible()) {
+      <app-payment-form
+        [contractId]="c.id"
+        [installments]="c.installments"
+        [remaining]="c.remainingAmount"
+        [pending]="c.pendingAmount"
+        [busy]="payments.busy()"
+        (saved)="onPaymentSaved($event)"
+        (cancelled)="paymentVisible.set(false)"
+      />
+    }
+  </ng-container>
+</nz-modal>
+
+<nz-modal
+  [nzVisible]="invoiceVisible()"
+  nzTitle="Đề nghị xuất hoá đơn"
+  [nzFooter]="null"
+  (nzOnCancel)="invoiceVisible.set(false)"
+>
+  <ng-container *nzModalContent>
+    @if (invoiceVisible()) {
+      <app-invoice-request-form
+        [contractId]="c.id"
+        [remaining]="uninvoiced()"
+        (saved)="onInvoiceSaved()"
+        (cancelled)="invoiceVisible.set(false)"
+      />
+    }
+  </ng-container>
+</nz-modal>

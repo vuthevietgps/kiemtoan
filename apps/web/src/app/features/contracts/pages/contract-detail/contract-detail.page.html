@@ -1,0 +1,246 @@
+@if (contract(); as c) {
+  <app-page-header [title]="'Hợp đồng ' + c.code" [subtitle]="c.customer.name">
+    <a nz-button routerLink="/contracts">Danh sách</a>
+    @if (editable()) {
+      <a nz-button *appCan="'contracts:update'" [routerLink]="['/contracts', c.id, 'edit']">
+        <nz-icon nzType="edit" /> Sửa
+      </a>
+    }
+    @if (c.status === 'DRAFT') {
+      <button nz-button *appCan="'contracts:update'" [nzLoading]="busy()" (click)="submit()">
+        <nz-icon nzType="send" /> Gửi duyệt
+      </button>
+    }
+    @if (c.status === 'PENDING_APPROVAL') {
+      <button
+        nz-button
+        nzType="primary"
+        *appCan="'contracts:approve'"
+        [nzLoading]="busy()"
+        (click)="approve()"
+      >
+        <nz-icon nzType="check" /> {{ text.approve }}
+      </button>
+      <button nz-button *appCan="'contracts:approve'" [disabled]="busy()" (click)="openReturn()">
+        <nz-icon nzType="rollback" /> {{ text.returnToDraft }}
+      </button>
+    }
+    @if (needsGeneration()) {
+      <button nz-button *appCan="'contracts:update'" [nzLoading]="busy()" (click)="regenerate()">
+        {{ text.regenerate }}
+      </button>
+    }
+    @if (canRenew()) {
+      <button nz-button *appCan="'contracts:create'" [nzLoading]="busy()" (click)="renew()">
+        <nz-icon nzType="copy" /> {{ lifecycle.renew }}
+      </button>
+    }
+    @for (s of transitions(); track s) {
+      <button
+        nz-button
+        *appCan="'contracts:update'"
+        [nzDanger]="s === 'CANCELLED'"
+        [nzLoading]="busy()"
+        (click)="changeStatus(s)"
+      >
+        {{ transitionLabels[s] }}
+      </button>
+    }
+  </app-page-header>
+
+  @if (c.status === 'DRAFT' && c.returnedReason) {
+    <nz-alert
+      nzType="warning"
+      nzShowIcon
+      [nzMessage]="
+        text.returnedAlert + (c.returnedAt ? ' ' + (c.returnedAt | date: 'dd/MM/yyyy HH:mm') : '')
+      "
+      [nzDescription]="c.returnedReason"
+      style="margin-bottom: 12px"
+    />
+  }
+  @if (needsGeneration()) {
+    <nz-alert
+      nzType="info"
+      nzShowIcon
+      [nzMessage]="text.regenerateHint"
+      style="margin-bottom: 12px"
+    />
+  }
+
+  <nz-tabs>
+    <nz-tab [nzTitle]="lifecycle.tabOverview">
+      <app-contract-info-panel [contract]="c" (changed)="load()" />
+      <div class="panel summary">
+        @if (auth.can('finance:view')) {
+          <div>
+            <span>Giá trị trước VAT</span><b>{{ c.subtotal | vnd }}</b>
+          </div>
+          <div>
+            <span>VAT ({{ +c.vatRate }}%)</span><b>{{ c.vatAmount | vnd }}</b>
+          </div>
+          <div>
+            <span>Tổng thanh toán</span><b>{{ c.total | vnd }}</b>
+          </div>
+          <div>
+            <span>Đã thu</span><b>{{ c.paidAmount | vnd }}</b>
+          </div>
+          <div>
+            <span>Thanh toán</span>
+            <app-payment-tag
+              [status]="c.paymentStatus"
+              [contractStatus]="c.status"
+              [total]="c.total"
+              [paid]="c.paidAmount"
+            />
+          </div>
+        }
+        <div>
+          <span>Tiến độ công việc ({{ c.taskProgress.done }}/{{ c.taskProgress.total }})</span>
+          <nz-progress [nzPercent]="progress()" nzSize="small" />
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Dịch vụ</h3>
+        <nz-table
+          [nzData]="c.services"
+          [nzShowPagination]="false"
+          [nzScroll]="{ x: '970px' }"
+          nzSize="small"
+        >
+          <thead>
+            <tr>
+              <th>Dịch vụ</th>
+              <th nzWidth="100px">Kỳ</th>
+              <th nzWidth="70px" class="text-right">SL</th>
+              <th *appCan="'finance:view'" nzWidth="140px" class="text-right">Đơn giá</th>
+              <th *appCan="'finance:view'" nzWidth="150px" class="text-right">Thành tiền</th>
+              <th nzWidth="170px">Người thực hiện</th>
+              <th nzWidth="150px">{{ text.taskGeneration }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (s of c.services; track s.id) {
+              <tr>
+                <td>
+                  {{ s.serviceType.name }}
+                  <span class="text-muted">· {{ cycleLabels[s.serviceType.cycle] }}</span>
+                  @if (s.description) {
+                    <div class="text-muted">{{ s.description }}</div>
+                  }
+                </td>
+                <td>{{ s.period ?? '—' }}</td>
+                <td class="text-right">{{ s.quantity }}</td>
+                <td *appCan="'finance:view'" class="text-right">{{ s.unitPrice | vnd }}</td>
+                <td *appCan="'finance:view'" class="text-right">{{ s.amount | vnd }}</td>
+                <td>{{ s.assignee?.fullName ?? '—' }}</td>
+                <td>
+                  <nz-tag [nzColor]="generationLabels[s.taskGenerationStatus].color">
+                    {{ generationLabels[s.taskGenerationStatus].label }}
+                  </nz-tag>
+                  @if (s.taskGenerationMessage) {
+                    <div class="text-muted">{{ s.taskGenerationMessage }}</div>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+      </div>
+      <app-contract-amendments-panel [contract]="c" (changed)="load()" />
+    </nz-tab>
+    <nz-tab [nzTitle]="lifecycle.tabWork">
+      <div class="panel summary">
+        <div>
+          <span>Tiến độ công việc ({{ c.taskProgress.done }}/{{ c.taskProgress.total }})</span>
+          <nz-progress [nzPercent]="progress()" nzSize="small" />
+        </div>
+      </div>
+      @if (c.status !== 'CANCELLED') {
+        <app-contract-plans-panel [contract]="c" (changed)="load()" />
+      }
+    </nz-tab>
+    @if (hasAudit()) {
+      <nz-tab [nzTitle]="auditText.tabAudit">
+        <ng-template nz-tab>
+          <app-contract-audit-panel [contractId]="c.id" />
+        </ng-template>
+      </nz-tab>
+    }
+    <nz-tab [nzTitle]="lifecycle.tabDocuments">
+      <ng-template nz-tab>
+        <app-contract-documents-panel [contract]="c" />
+      </ng-template>
+    </nz-tab>
+    @if (auth.can('finance:view')) {
+      <nz-tab [nzTitle]="lifecycle.tabFinance">
+        <app-contract-finance-panel [contract]="c" (changed)="load()" />
+      </nz-tab>
+    }
+    <nz-tab [nzTitle]="lifecycle.tabHistory">
+      <ng-template nz-tab>
+        <app-contract-history-panel [contractId]="c.id" />
+      </ng-template>
+    </nz-tab>
+  </nz-tabs>
+} @else {
+  <div class="panel" style="text-align: center"><nz-spin nzSimple /></div>
+}
+
+<nz-modal
+  [nzVisible]="returnVisible()"
+  [nzTitle]="text.returnTitle"
+  [nzOkText]="text.returnToDraft"
+  [nzCancelText]="text.cancel"
+  [nzOkLoading]="busy()"
+  [nzOkDisabled]="returnReason().trim().length < 5"
+  (nzOnOk)="confirmReturn()"
+  (nzOnCancel)="returnVisible.set(false)"
+>
+  <ng-container *nzModalContent>
+    <p class="text-muted">{{ text.returnHint }}</p>
+    <label for="return-reason">{{ text.returnReason }}</label>
+    <textarea
+      id="return-reason"
+      nz-input
+      rows="3"
+      maxlength="500"
+      [ngModel]="returnReason()"
+      (ngModelChange)="returnReason.set($event)"
+    ></textarea>
+    @if (returnReason().length > 0 && returnReason().trim().length < 5) {
+      <div class="text-muted">{{ text.returnError }}</div>
+    }
+  </ng-container>
+</nz-modal>
+
+<nz-modal
+  [nzVisible]="cancelVisible()"
+  [nzTitle]="lifecycle.cancelTitle"
+  [nzOkText]="lifecycle.cancelOk"
+  [nzOkDanger]="true"
+  [nzCancelText]="lifecycle.back"
+  [nzOkLoading]="busy()"
+  [nzOkDisabled]="!cancelReasonValid()"
+  (nzOnOk)="confirmCancel()"
+  (nzOnCancel)="cancelVisible.set(false)"
+>
+  <ng-container *nzModalContent>
+    <p class="text-muted">{{ lifecycle.cancelHint }}</p>
+    <label for="cancel-reason">{{
+      hasTasks() ? lifecycle.cancelReasonLabel : lifecycle.cancelOptional
+    }}</label>
+    <textarea
+      id="cancel-reason"
+      nz-input
+      rows="3"
+      maxlength="500"
+      [ngModel]="cancelReason()"
+      (ngModelChange)="cancelReason.set($event)"
+    ></textarea>
+    @if (hasTasks() && !cancelReasonValid()) {
+      <div class="text-muted">{{ lifecycle.cancelRequired }}</div>
+    }
+  </ng-container>
+</nz-modal>

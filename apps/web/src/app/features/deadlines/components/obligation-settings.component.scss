@@ -1,0 +1,46 @@
+h4 {
+  margin: 0 0 4px;
+}
+
+.hint,
+.muted {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.hint {
+  margin-bottom: 8px;
+}
+
+.item {
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.name {
+  font-weight: 500;
+}
+
+.state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+
+  input {
+    flex: 1 1 220px;
+  }
+}

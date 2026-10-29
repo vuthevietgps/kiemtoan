@@ -1,0 +1,211 @@
+<app-page-header title="Công việc" subtitle="Việc cần làm theo khách hàng, hợp đồng và dịch vụ">
+  <a nz-button routerLink="/tasks/my"><nz-icon nzType="user" /> Việc của tôi</a>
+  <a nz-button routerLink="/tasks/documents"><nz-icon nzType="file-text" /> Hồ sơ khách hàng</a>
+  <button nz-button nzType="primary" *appCan="'tasks:create'" (click)="createOpen.set(true)">
+    <nz-icon nzType="plus" /> Thêm việc phát sinh
+  </button>
+</app-page-header>
+
+<nz-tabs
+  [nzSelectedIndex]="tabIndex()"
+  (nzSelectedIndexChange)="onTabChange($event)"
+  [nzTabBarStyle]="{ 'margin-bottom': '12px' }"
+>
+  <nz-tab nzTitle="Danh sách công việc">
+    <app-task-summary-cards
+      [summary]="summary()"
+      [active]="activeCard()"
+      (pick)="pickCard($event)"
+    />
+
+    <div class="panel">
+      <div class="filters">
+        @if (isManager()) {
+          <nz-radio-group
+            nzButtonStyle="solid"
+            [ngModel]="filters().mine"
+            (ngModelChange)="patchFilters({ mine: $event, assigneeId: null })"
+          >
+            <label nz-radio-button [nzValue]="true">Việc của tôi</label>
+            <label nz-radio-button [nzValue]="false">Tất cả trong phạm vi</label>
+          </nz-radio-group>
+        }
+        <nz-select
+          nzShowSearch
+          nzAllowClear
+          nzPlaceHolder="Khách hàng"
+          [ngModel]="filters().customerId"
+          (ngModelChange)="patchFilters({ customerId: $event ?? null })"
+        >
+          @for (c of customers(); track c.id) {
+            <nz-option [nzValue]="c.id" [nzLabel]="c.name" />
+          }
+        </nz-select>
+        @if (isManager() && !filters().mine) {
+          <nz-select
+            nzShowSearch
+            nzAllowClear
+            nzPlaceHolder="Nhân viên"
+            [ngModel]="filters().assigneeId"
+            (ngModelChange)="patchFilters({ assigneeId: $event ?? null })"
+          >
+            @for (u of users(); track u.id) {
+              <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+            }
+          </nz-select>
+        }
+        <nz-select
+          nzAllowClear
+          nzPlaceHolder="Trạng thái"
+          [ngModel]="filters().status"
+          (ngModelChange)="patchFilters({ status: $event ?? null })"
+        >
+          @for (o of statusOptions; track o[0]) {
+            <nz-option [nzValue]="o[0]" [nzLabel]="o[1]" />
+          }
+        </nz-select>
+        <nz-select
+          nzAllowClear
+          nzPlaceHolder="Hạn"
+          [ngModel]="filters().due"
+          (ngModelChange)="patchFilters({ due: $event ?? null })"
+        >
+          @for (o of dueOptions; track o[0]) {
+            <nz-option [nzValue]="o[0]" [nzLabel]="o[1]" />
+          }
+        </nz-select>
+        <nz-select
+          nzAllowClear
+          nzPlaceHolder="Ưu tiên"
+          [ngModel]="filters().priority"
+          (ngModelChange)="patchFilters({ priority: $event ?? null })"
+        >
+          @for (o of priorityOptions; track o[0]) {
+            <nz-option [nzValue]="o[0]" [nzLabel]="o[1]" />
+          }
+        </nz-select>
+        @if (isManager()) {
+          <nz-select
+            nzShowSearch
+            nzAllowClear
+            nzPlaceHolder="Người kiểm tra/phê duyệt"
+            [ngModel]="filters().reviewerId"
+            (ngModelChange)="patchFilters({ reviewerId: $event ?? null })"
+          >
+            @for (u of users(); track u.id) {
+              <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+            }
+          </nz-select>
+        }
+        <label
+          nz-checkbox
+          class="check"
+          [ngModel]="filters().statutory"
+          (ngModelChange)="patchFilters({ statutory: $event })"
+        >
+          Hạn pháp lý
+        </label>
+        <label
+          nz-checkbox
+          class="check"
+          [ngModel]="filters().missingEvidence"
+          (ngModelChange)="patchFilters({ missingEvidence: $event })"
+        >
+          Thiếu bằng chứng
+        </label>
+        <nz-input-group nzSearch [nzAddOnAfter]="searchButton" class="search">
+          <input
+            nz-input
+            placeholder="Tìm việc, khách hàng, mã HĐ"
+            [(ngModel)]="searchText"
+            (keyup.enter)="applySearch()"
+          />
+        </nz-input-group>
+        <ng-template #searchButton>
+          <button nz-button nzSearch (click)="applySearch()"><nz-icon nzType="search" /></button>
+        </ng-template>
+        <button nz-button nzType="link" (click)="resetFilters()">Xoá lọc</button>
+        <div class="spacer"></div>
+        <nz-radio-group [ngModel]="view()" (ngModelChange)="changeView($event)">
+          <label nz-radio-button nzValue="table"><nz-icon nzType="table" /> Bảng</label>
+          <label nz-radio-button nzValue="kanban"><nz-icon nzType="project" /> Kanban</label>
+        </nz-radio-group>
+      </div>
+
+      @if (view() === 'table' && isManager() && selectedIds().size) {
+        <div class="bulk">
+          <span>Đã chọn {{ selectedIds().size }} việc</span>
+          <nz-select nzShowSearch nzPlaceHolder="Giao cho" [(ngModel)]="bulkAssignee">
+            @for (u of users(); track u.id) {
+              <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+            }
+          </nz-select>
+          <button nz-button nzType="primary" [disabled]="!bulkAssignee" (click)="bulkReassign()">
+            Giao lại
+          </button>
+          <button nz-button nzType="link" (click)="clearSelection()">Bỏ chọn</button>
+        </div>
+      }
+      @if (view() === 'table') {
+        <app-task-table
+          [selectable]="isManager()"
+          [selected]="selectedIds()"
+          (selectedChange)="selectedIds.set($event)"
+          [rows]="rows()"
+          [total]="total()"
+          [pageIndex]="pageIndex()"
+          [pageSize]="pageSize()"
+          [loading]="loading()"
+          (pageIndexChange)="pageIndex.set($event)"
+          (pageSizeChange)="pageSize.set($event); pageIndex.set(1)"
+          (open)="openTask($event)"
+          (advance)="move($event)"
+        />
+      } @else {
+        <app-task-kanban
+          [rows]="rows()"
+          [total]="total()"
+          [loading]="loading()"
+          (open)="openTask($event)"
+          (move)="move($event)"
+        />
+      }
+    </div>
+  </nz-tab>
+
+  @if (isManager()) {
+    <nz-tab nzTitle="Theo khách hàng">
+      <div class="panel">
+        <app-task-manager-stats
+          mode="customers"
+          [customers]="byCustomer()"
+          [loading]="statsLoading()"
+          (pickCustomer)="filterCustomer($event)"
+        />
+      </div>
+    </nz-tab>
+    <nz-tab nzTitle="Khối lượng nhân viên">
+      <div class="panel">
+        <app-task-manager-stats
+          mode="workload"
+          [workload]="workload()"
+          [loading]="statsLoading()"
+          (pickAssignee)="filterAssignee($event)"
+        />
+      </div>
+    </nz-tab>
+  }
+</nz-tabs>
+
+<app-task-drawer
+  [taskId]="selectedId()"
+  [users]="users()"
+  (closed)="closeDrawer()"
+  (changed)="refresh()"
+/>
+<app-task-create-modal
+  [(visible)]="createOpen"
+  [customers]="customers()"
+  [users]="users()"
+  (created)="refresh()"
+/>

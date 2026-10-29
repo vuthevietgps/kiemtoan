@@ -1,0 +1,40 @@
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+
+  .search {
+    width: 260px;
+    max-width: 100%;
+  }
+
+  nz-select {
+    width: 180px;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 575px) {
+  .filters .search,
+  .filters nz-select {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+}
+
+.block {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.muted {
+  color: rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+}
+
+.error {
+  color: #cf1322;
+  font-size: 12px;
+  word-break: break-word;
+}

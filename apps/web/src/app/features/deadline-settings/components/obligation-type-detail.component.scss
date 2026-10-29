@@ -1,0 +1,57 @@
+.title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  word-break: break-word;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+section {
+  margin-top: 16px;
+}
+
+h4 {
+  margin: 0 0 8px;
+}
+
+p {
+  margin: 0 0 8px;
+}
+
+.muted {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.actions,
+.inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.inline input,
+.grow {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+nz-select.grow {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.block {
+  margin-bottom: 8px;
+}
+
+.shifted {
+  color: #d46b08;
+  font-weight: 500;
+}

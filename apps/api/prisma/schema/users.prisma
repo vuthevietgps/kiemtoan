@@ -1,0 +1,172 @@
+// Module: users, access-control, audit-log, notifications
+
+enum Role {
+  DIRECTOR // Giám đốc
+  MANAGER // Kế toán trưởng / Trưởng nhóm
+  STAFF // Nhân viên nghiệp vụ
+  CASHIER // Kế toán thu tiền
+  ADMIN // Quản trị hệ thống
+}
+
+model Team {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  members   User[]
+
+  @@map("teams")
+}
+
+model User {
+  id                 String            @id @default(uuid()) @db.Uuid
+  email              String            @unique
+  passwordHash       String            @map("password_hash")
+  fullName           String            @map("full_name")
+  phone              String?
+  title              String?
+  role               Role              @default(STAFF)
+  teamId             String?           @map("team_id") @db.Uuid
+  isActive           Boolean           @default(true) @map("is_active")
+  lastLoginAt        DateTime?         @map("last_login_at") @db.Timestamptz
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt          DateTime?         @map("deleted_at") @db.Timestamptz
+  accessRoleId       String?           @map("access_role_id") @db.Uuid
+  financialAccess    Boolean?          @map("financial_access")
+  secretAccess       Boolean?          @map("secret_access")
+  mustChangePassword Boolean           @default(false) @map("must_change_password")
+  activatedAt        DateTime?         @map("activated_at") @db.Timestamptz
+  leftAt             DateTime?         @map("left_at") @db.Timestamptz
+  failedLoginCount   Int               @default(0) @map("failed_login_count")
+  authVersion        Int               @default(0) @map("auth_version")
+  lockedUntil        DateTime?         @map("locked_until") @db.Timestamptz
+  accessRole         AccessRole?       @relation(fields: [accessRoleId], references: [id])
+  sessions           AuthSession[]
+  actionTokens       UserActionToken[]
+  accessRequests     AccessRequest[]   @relation("AccessTarget")
+  requestedAccess    AccessRequest[]   @relation("AccessRequester")
+  reviewedAccess     AccessRequest[]   @relation("AccessReviewer")
+
+  team                   Team?                   @relation(fields: [teamId], references: [id])
+  ownedCustomers         Customer[]              @relation("CustomerOwner")
+  customerAssignments    CustomerAssignment[]    @relation("CustomerAssignee")
+  ownedContracts         Contract[]              @relation("ContractOwner")
+  approvedContracts      Contract[]              @relation("ContractApprover")
+  assignedServices       ContractService[]       @relation("ServiceAssignee")
+  assignedTasks          Task[]                  @relation("TaskAssignee")
+  approvedTasks          Task[]                  @relation("TaskApprover")
+  createdTasks           Task[]                  @relation("TaskCreator")
+  uploadedDocuments      Document[]
+  receivedPayments       Payment[]
+  requestedInvoices      Invoice[]
+  updatedCredentials     ClientCredential[]
+  auditLogs              AuditLog[]
+  notifications          Notification[]
+  notificationDeliveries NotificationDelivery[]
+  notificationPreference NotificationPreference?
+
+  @@index([teamId])
+  @@index([accessRoleId])
+  @@map("users")
+}
+
+model AccessRole {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @unique
+  baseRole    Role      @map("base_role")
+  scope       String    @default("OWN")
+  permissions String[]
+  createdById String    @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz
+  users       User[]
+
+  @@map("access_roles")
+}
+
+model AuthSession {
+  id                  String    @id @default(uuid()) @db.Uuid
+  userId              String    @map("user_id") @db.Uuid
+  refreshHash         String    @map("refresh_hash")
+  previousRefreshHash String?   @map("previous_refresh_hash")
+  authVersion         Int       @default(0) @map("auth_version")
+  expiresAt           DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt           DateTime? @map("revoked_at") @db.Timestamptz
+  secretVerifiedAt    DateTime? @map("secret_verified_at") @db.Timestamptz
+  userAgent           String?   @map("user_agent")
+  ipAddress           String?   @map("ip_address")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  lastUsedAt          DateTime  @default(now()) @map("last_used_at") @db.Timestamptz
+  user                User      @relation(fields: [userId], references: [id])
+
+  @@index([userId, revokedAt])
+  @@map("auth_sessions")
+}
+
+model UserActionToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  purpose   String
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([userId, purpose])
+  @@map("user_action_tokens")
+}
+
+model AccessRequest {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  requestedById String    @map("requested_by_id") @db.Uuid
+  reviewedById  String?   @map("reviewed_by_id") @db.Uuid
+  proposal      Json
+  status        String    @default("PENDING")
+  reason        String?
+  reviewedAt    DateTime? @map("reviewed_at") @db.Timestamptz
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  user          User      @relation("AccessTarget", fields: [userId], references: [id])
+  requestedBy   User      @relation("AccessRequester", fields: [requestedById], references: [id])
+  reviewedBy    User?     @relation("AccessReviewer", fields: [reviewedById], references: [id])
+
+  @@index([status, createdAt])
+  @@map("access_requests")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  action    String // CREATE, UPDATE, DELETE, APPROVE, LOGIN, VIEW_SECRET...
+  entity    String // tên module, ví dụ "contracts"
+  entityId  String?  @map("entity_id")
+  detail    Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id          String               @id @default(uuid()) @db.Uuid
+  userId      String               @map("user_id") @db.Uuid
+  title       String
+  link        String?
+  /// 06-C: loại, mức độ (đỏ = quá hạn/leo thang) và đối tượng của thông báo.
+  kind        NotificationKind     @default(GENERAL)
+  severity    NotificationSeverity @default(INFO)
+  subjectType String?              @map("subject_type")
+  subjectId   String?              @map("subject_id") @db.Uuid
+  readAt      DateTime?            @map("read_at") @db.Timestamptz
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}

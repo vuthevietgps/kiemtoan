@@ -1,0 +1,335 @@
+<app-page-header [title]="text.pageTitle" [subtitle]="text.pageSubtitle">
+  <a nz-button routerLink="/contracts">Danh sách hợp đồng</a>
+</app-page-header>
+
+<nz-tabs [nzSelectedIndex]="tab()" (nzSelectedIndexChange)="setTab($event)">
+  <nz-tab [nzTitle]="text.tabEngagements">
+    <div class="panel">
+      <div class="filters">
+        <nz-input-group [nzSuffix]="searchIcon">
+          <input
+            nz-input
+            [placeholder]="text.search"
+            [(ngModel)]="filters.search"
+            (keyup.enter)="apply()"
+          />
+        </nz-input-group>
+        <ng-template #searchIcon><nz-icon nzType="search" /></ng-template>
+        <nz-select
+          [nzPlaceHolder]="text.year"
+          nzAllowClear
+          [(ngModel)]="filters.year"
+          (ngModelChange)="apply()"
+        >
+          @for (y of years; track y) {
+            <nz-option [nzValue]="y" [nzLabel]="'' + y" />
+          }
+        </nz-select>
+        <nz-select
+          [nzPlaceHolder]="text.service"
+          nzAllowClear
+          [(ngModel)]="filters.serviceTypeId"
+          (ngModelChange)="apply()"
+        >
+          @for (s of services(); track s.id) {
+            <nz-option [nzValue]="s.id" [nzLabel]="s.name" />
+          }
+        </nz-select>
+        <nz-select
+          [nzPlaceHolder]="text.stage"
+          nzAllowClear
+          [(ngModel)]="filters.stage"
+          (ngModelChange)="apply()"
+        >
+          @for (s of stages; track s) {
+            <nz-option [nzValue]="s" [nzLabel]="stageLabels[s].label" />
+          }
+        </nz-select>
+        <nz-select
+          [nzPlaceHolder]="text.priority"
+          nzAllowClear
+          [(ngModel)]="filters.priority"
+          (ngModelChange)="apply()"
+        >
+          @for (p of priorities; track p) {
+            <nz-option [nzValue]="p" [nzLabel]="priorityLabels[p]" />
+          }
+        </nz-select>
+        <nz-select
+          [nzPlaceHolder]="text.deadlineFilter"
+          nzAllowClear
+          [(ngModel)]="filters.deadline"
+          (ngModelChange)="apply()"
+        >
+          @for (o of deadlineOptions; track o.value) {
+            <nz-option [nzValue]="o.value" [nzLabel]="o.label" />
+          }
+        </nz-select>
+        <nz-select
+          [nzPlaceHolder]="text.owner"
+          nzAllowClear
+          nzShowSearch
+          [(ngModel)]="filters.ownerId"
+          (ngModelChange)="apply()"
+        >
+          @for (u of users(); track u.id) {
+            <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+          }
+        </nz-select>
+        <nz-select
+          [nzPlaceHolder]="text.manager"
+          nzAllowClear
+          nzShowSearch
+          [(ngModel)]="filters.managerId"
+          (ngModelChange)="apply()"
+        >
+          @for (u of users(); track u.id) {
+            <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+          }
+        </nz-select>
+        <nz-select
+          [nzPlaceHolder]="text.lead"
+          nzAllowClear
+          nzShowSearch
+          [(ngModel)]="filters.leadId"
+          (ngModelChange)="apply()"
+        >
+          @for (u of users(); track u.id) {
+            <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+          }
+        </nz-select>
+        <nz-select
+          [nzPlaceHolder]="text.signer"
+          nzAllowClear
+          nzShowSearch
+          [(ngModel)]="filters.signerId"
+          (ngModelChange)="apply()"
+        >
+          @for (u of users(); track u.id) {
+            <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+          }
+        </nz-select>
+        <label nz-checkbox [(ngModel)]="filters.dossierIncomplete" (ngModelChange)="apply()">{{
+          text.dossierIncomplete
+        }}</label>
+        <label nz-checkbox [(ngModel)]="filters.uninvoiced" (ngModelChange)="apply()">{{
+          text.uninvoiced
+        }}</label>
+        @if (finance) {
+          <label nz-checkbox [(ngModel)]="filters.receivable" (ngModelChange)="apply()">{{
+            text.receivable
+          }}</label>
+        }
+        <button nz-button (click)="apply()">{{ text.apply }}</button>
+        <button nz-button nzType="link" (click)="reset()">{{ text.reset }}</button>
+      </div>
+
+      @if (result(); as r) {
+        <div class="cards">
+          <div
+            class="card"
+            (click)="filterStage(null)"
+            (keyup.enter)="filterStage(null)"
+            tabindex="0"
+          >
+            <b>{{ r.summary.total }}</b
+            ><span>{{ text.total }}</span>
+          </div>
+          @for (s of stages.slice(1); track s) {
+            <div class="card" (click)="filterStage(s)" (keyup.enter)="filterStage(s)" tabindex="0">
+              <b>{{ r.summary.byStage[s] }}</b
+              ><span>{{ stageLabels[s].label }}</span>
+            </div>
+          }
+          <div
+            class="card"
+            (click)="filterStage(null, 'OVERDUE')"
+            (keyup.enter)="filterStage(null, 'OVERDUE')"
+            tabindex="0"
+          >
+            <b style="color: #cf1322">{{ r.summary.overdue }}</b
+            ><span>{{ text.overdue }}</span>
+          </div>
+          <div
+            class="card"
+            (click)="filterStage(null, 'DUE_SOON')"
+            (keyup.enter)="filterStage(null, 'DUE_SOON')"
+            tabindex="0"
+          >
+            <b style="color: #d46b08">{{ r.summary.dueSoon }}</b
+            ><span>{{ text.dueSoon }}</span>
+          </div>
+          @if (finance && r.summary.totalContractValue) {
+            <div class="card">
+              <b>{{ r.summary.totalContractValue | vnd }}</b
+              ><span>{{ text.contractTotal }}</span>
+            </div>
+            <div class="card">
+              <b>{{ r.summary.paidAmount | vnd }}</b
+              ><span>{{ text.paid }}</span>
+            </div>
+            <div class="card">
+              <b>{{ r.summary.remainingAmount | vnd }}</b
+              ><span>{{ text.remaining }}</span>
+            </div>
+          }
+        </div>
+      }
+
+      <nz-table
+        #table
+        [nzData]="result()?.items ?? []"
+        [nzLoading]="loading()"
+        [nzFrontPagination]="false"
+        [nzTotal]="result()?.total ?? 0"
+        [nzPageIndex]="page()"
+        [nzPageSize]="pageSize()"
+        [nzPageSizeOptions]="[20, 50, 100, 200]"
+        [nzShowSizeChanger]="true"
+        [nzScroll]="{ x: finance ? '2640px' : '2240px' }"
+        nzSize="small"
+        (nzQueryParams)="onQueryParams($event)"
+      >
+        <thead>
+          <tr>
+            <th nzLeft nzWidth="200px">{{ text.customer }}</th>
+            <th nzWidth="70px">{{ text.year }}</th>
+            <th nzWidth="140px">{{ text.service }}</th>
+            <th nzWidth="120px" nzColumnKey="code" [nzSortFn]="true">{{ text.contract }}</th>
+            <th nzWidth="100px" nzColumnKey="signedDate" [nzSortFn]="true">
+              {{ text.signedDate }}
+            </th>
+            @if (finance) {
+              <th nzWidth="130px" class="text-right">{{ text.lineValue }}</th>
+              <th nzWidth="120px" class="text-right">{{ text.contractTotal }}</th>
+              <th nzWidth="120px" class="text-right">{{ text.paid }}</th>
+              <th nzWidth="120px" class="text-right">{{ text.remaining }}</th>
+            }
+            <th nzWidth="130px">{{ text.owner }}</th>
+            <th nzWidth="130px">{{ text.manager }}</th>
+            <th nzWidth="130px">{{ text.lead }}</th>
+            <th nzWidth="130px">{{ text.assistants }}</th>
+            <th nzWidth="130px" nzColumnKey="stage" [nzSortFn]="true">{{ text.stage }}</th>
+            <th nzWidth="100px" nzColumnKey="priority" [nzSortFn]="true">{{ text.priority }}</th>
+            <th nzWidth="240px">{{ text.lastNote }}</th>
+            <th nzWidth="150px" nzColumnKey="issueDue" [nzSortFn]="true">{{ text.issueDue }}</th>
+            <th nzWidth="130px">{{ text.reportNumber }}</th>
+            <th nzWidth="110px" nzColumnKey="reportDate" [nzSortFn]="true">
+              {{ text.reportDate }}
+            </th>
+            <th nzWidth="150px">{{ text.signer }}</th>
+            <th nzWidth="130px">{{ text.clientDelivery }}</th>
+            <th nzWidth="110px">{{ text.originalFiling }}</th>
+            <th nzWidth="100px">{{ text.invoice }}</th>
+            <th nzWidth="110px">{{ text.acceptance }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of table.data; track r.lineId) {
+            <tr class="clickable" (click)="selected.set(r)">
+              <td nzLeft>
+                <b>{{ r.customer.name }}</b>
+                <div class="muted">{{ r.customer.taxCode }}</div>
+              </td>
+              <td>{{ r.year }}</td>
+              <td>{{ r.serviceType.name }}</td>
+              <td>
+                <a
+                  [routerLink]="['/contracts', r.contract.id]"
+                  (click)="$event.stopPropagation()"
+                  >{{ r.contract.code }}</a
+                >
+              </td>
+              <td>{{ r.contract.signedDate | date: 'dd/MM/yyyy' }}</td>
+              @if (finance) {
+                <td class="text-right">{{ r.amount | vnd }}</td>
+                <td class="text-right">{{ r.totalContractValue | vnd }}</td>
+                <td class="text-right">{{ r.paidAmount | vnd }}</td>
+                <td class="text-right">{{ r.remainingAmount | vnd }}</td>
+              }
+              <td>{{ r.contract.owner?.fullName ?? '—' }}</td>
+              <td>{{ r.manager?.fullName ?? '—' }}</td>
+              <td>{{ r.lead?.fullName ?? '—' }}</td>
+              <td>{{ names(r.assistants) }}</td>
+              <td>
+                <nz-tag [nzColor]="stageLabels[r.stage].color">{{
+                  stageLabels[r.stage].label
+                }}</nz-tag>
+              </td>
+              <td>
+                <nz-tag [nzColor]="priorityColors[r.priority]">{{
+                  priorityLabels[r.priority]
+                }}</nz-tag>
+              </td>
+              <td [title]="r.lastNote?.content ?? ''">
+                @if (r.lastNote; as n) {
+                  <div class="note">{{ n.content }}</div>
+                  <div class="muted">
+                    {{ n.author?.fullName ?? '—' }} · {{ n.createdAt | date: 'dd/MM/yyyy' }}
+                  </div>
+                } @else {
+                  <span class="muted">—</span>
+                }
+              </td>
+              <td>
+                @if (r.issueDeadline; as d) {
+                  {{ d.currentDue | date: 'dd/MM/yyyy' }}
+                  <div>
+                    <nz-tag [nzColor]="resultLabels[d.result].color">
+                      {{ resultLabels[d.result].label }}
+                    </nz-tag>
+                    <span class="muted">{{ text.dayNote(d.result, d.days) }}</span>
+                    @if (d.extended) {
+                      <span class="muted">{{ text.extended }}</span>
+                    }
+                  </div>
+                } @else {
+                  —
+                }
+                @if (r.deadlineFlags.overdue && r.issueDeadline?.result !== 'OVERDUE') {
+                  <div>
+                    <nz-tag nzColor="red">{{ text.otherOverdue }}</nz-tag>
+                  </div>
+                }
+              </td>
+              <td>{{ r.reportNumber ?? '—' }}</td>
+              <td>{{ r.reportDate | date: 'dd/MM/yyyy' }}</td>
+              <td>
+                {{ r.signer1?.fullName ?? '—' }}
+                @if (r.signer2) {
+                  <div class="muted">{{ r.signer2.fullName }}</div>
+                }
+              </td>
+              <td>{{ deliveryLabels[r.dossier.clientDeliveryStatus] }}</td>
+              <td>{{ filingLabels[r.dossier.originalFilingStatus] }}</td>
+              <td>{{ invoiceLabels[r.invoice] }}</td>
+              <td>{{ acceptanceLabels[r.dossier.acceptanceStatus] }}</td>
+            </tr>
+          }
+        </tbody>
+      </nz-table>
+    </div>
+  </nz-tab>
+  <nz-tab [nzTitle]="text.tabPeople">
+    <ng-template nz-tab>
+      <app-audit-people-panel [services]="services()" />
+    </ng-template>
+  </nz-tab>
+</nz-tabs>
+
+<nz-drawer
+  [nzVisible]="!!selected()"
+  [nzWidth]="drawerWidth()"
+  [nzTitle]="
+    selected()
+      ? text.detailTitle + ' — ' + selected()!.contract.code + ' · ' + selected()!.customer.name
+      : ''
+  "
+  (nzOnClose)="selected.set(null)"
+>
+  <ng-container *nzDrawerContent>
+    @if (selected(); as s) {
+      <app-contract-audit-panel [contractId]="s.contract.id" (changed)="load()" />
+    }
+  </ng-container>
+</nz-drawer>

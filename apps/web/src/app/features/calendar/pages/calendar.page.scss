@@ -1,0 +1,178 @@
+// Màu theo mức gấp (I11) — cùng tông với nhãn mức gấp ở công việc.
+$overdue: #cf1322;
+$near: #fa541c;
+$priority: #faad14;
+$soon: #1677ff;
+$normal: #e6f4ff;
+$done: #f0f0f0;
+$statutory: #722ed1;
+$internal: #13c2c2;
+$off: #f5f5f5;
+
+app-calendar-filters {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.notice {
+  margin-bottom: 12px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: -1px;
+
+  &.statutory {
+    background: $statutory;
+  }
+  &.internal {
+    background: $internal;
+  }
+  &.overdue {
+    background: $overdue;
+  }
+  &.near {
+    background: $near;
+  }
+  &.priority {
+    background: $priority;
+  }
+  &.soon {
+    background: $soon;
+  }
+  &.done {
+    background: $done;
+    border: 1px solid #d9d9d9;
+  }
+  &.off {
+    background: $off;
+    border: 1px solid #d9d9d9;
+  }
+}
+
+.panel {
+  min-width: 0;
+}
+
+// Ô và mục của FullCalendar nằm ngoài phạm vi style của component.
+:host ::ng-deep {
+  .fc .cal-day-off {
+    background: $off;
+  }
+
+  .fc .fc-daygrid-event.cal-event,
+  .fc .fc-list-event.cal-event td {
+    font-size: 12px;
+  }
+
+  .fc .fc-daygrid-event.cal-event {
+    border: 0;
+    border-left: 4px solid transparent;
+    padding: 0 4px;
+    cursor: pointer;
+  }
+
+  .fc .cal-statutory.fc-daygrid-event {
+    border-left-color: $statutory;
+  }
+  .fc .cal-internal.fc-daygrid-event {
+    border-left-color: $internal;
+  }
+
+  .fc .cal-tone-overdue.fc-daygrid-event {
+    background: $overdue;
+    .fc-event-main {
+      color: #fff;
+    }
+  }
+  .fc .cal-tone-today.fc-daygrid-event,
+  .fc .cal-tone-near.fc-daygrid-event {
+    background: $near;
+    .fc-event-main {
+      color: #fff;
+    }
+  }
+  .fc .cal-tone-priority.fc-daygrid-event {
+    background: $priority;
+    .fc-event-main {
+      color: #262626;
+    }
+  }
+  .fc .cal-tone-due_soon.fc-daygrid-event {
+    background: $soon;
+    .fc-event-main {
+      color: #fff;
+    }
+  }
+  .fc .cal-tone-normal.fc-daygrid-event {
+    background: $normal;
+    .fc-event-main {
+      color: #0f2a4a;
+    }
+  }
+  .fc .cal-tone-done.fc-daygrid-event {
+    background: $done;
+    .fc-event-main {
+      color: #8c8c8c;
+      text-decoration: line-through;
+    }
+  }
+
+  // Dạng danh sách: chấm màu theo mức gấp, viền trái theo loại hạn.
+  .fc .fc-list-event.cal-event {
+    cursor: pointer;
+  }
+  .fc .cal-statutory .fc-list-event-graphic {
+    border-left: 4px solid $statutory;
+  }
+  .fc .cal-internal .fc-list-event-graphic {
+    border-left: 4px solid $internal;
+  }
+  .fc .cal-tone-overdue .fc-list-event-dot {
+    border-color: $overdue;
+  }
+  .fc .cal-tone-today .fc-list-event-dot,
+  .fc .cal-tone-near .fc-list-event-dot {
+    border-color: $near;
+  }
+  .fc .cal-tone-priority .fc-list-event-dot {
+    border-color: $priority;
+  }
+  .fc .cal-tone-due_soon .fc-list-event-dot {
+    border-color: $soon;
+  }
+  .fc .cal-tone-normal .fc-list-event-dot {
+    border-color: #91caff;
+  }
+  .fc .cal-tone-done .fc-list-event-dot {
+    border-color: #bfbfbf;
+  }
+  .fc .cal-tone-done .fc-list-event-title {
+    color: #8c8c8c;
+    text-decoration: line-through;
+  }
+
+  // Màn hẹp: thanh công cụ xuống dòng, không tràn ngang.
+  @media (max-width: 575px) {
+    .fc .fc-header-toolbar {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .fc .fc-toolbar-title {
+      font-size: 16px;
+    }
+  }
+}

@@ -1,0 +1,5 @@
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; }
+label { display: block; margin-bottom: 12px; }
+input { display: block; margin-top: 5px; }
+nz-alert { display: block; margin-bottom: 16px; }
+td { overflow-wrap: anywhere; }

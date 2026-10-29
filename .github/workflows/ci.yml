@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            apps/api/package-lock.json
+            apps/web/package-lock.json
+      - name: Install API dependencies
+        run: npm ci --prefix apps/api --legacy-peer-deps
+      - name: Install web dependencies
+        run: npm ci --prefix apps/web --legacy-peer-deps
+      - name: Generate Prisma Client
+        working-directory: apps/api
+        run: node node_modules/prisma/build/index.js generate
+        env:
+          DATABASE_URL: postgresql://foundation:foundation_test@localhost:5432/ketoan_test
+      - name: Audit API production dependencies
+        working-directory: apps/api
+        run: npm audit --omit=dev --audit-level=moderate
+      - name: Lint API and web
+        run: |
+          npm --prefix apps/api run lint
+          npm --prefix apps/web run lint
+      - name: Unit tests
+        run: |
+          npm --prefix apps/api test -- --runInBand
+          npm --prefix apps/web test -- --watch=false
+      - name: Builds
+        run: |
+          npm --prefix apps/api run build
+          npm --prefix apps/web run build
+      - name: File size check
+        run: node scripts/check-max-lines.mjs
+
+  api-e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: foundation
+          POSTGRES_PASSWORD: foundation_test
+          POSTGRES_DB: ketoan_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U foundation -d ketoan_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DATABASE_URL: postgresql://foundation:foundation_test@localhost:5432/ketoan_test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - name: Install API dependencies
+        run: npm ci --prefix apps/api --legacy-peer-deps
+      - name: Generate Prisma Client
+        working-directory: apps/api
+        run: node node_modules/prisma/build/index.js generate
+      - name: End-to-end tests on isolated database
+        run: npm --prefix apps/api run test:e2e
+      - name: Permission and account coverage
+        run: npm --prefix apps/api run test:access

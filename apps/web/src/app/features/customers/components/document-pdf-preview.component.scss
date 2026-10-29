@@ -1,0 +1,4 @@
+.toolbar { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.page { max-height: 65vh; overflow: auto; background: #e5e7eb; text-align: center; }
+canvas { max-width: 100%; height: auto; background: white; }
+[role='alert'] { color: #cf1322; }

@@ -1,0 +1,323 @@
+@let item_ = item();
+@let e_ = e();
+<div class="panel">
+  <div class="head">
+    <h3>
+      {{ item_.serviceType.name }}
+      <span class="muted">· {{ item_.period ?? item_.year }}</span>
+    </h3>
+    <div>
+      <nz-tag [nzColor]="stageLabels[e_.stage].color">{{ stageLabels[e_.stage].label }}</nz-tag>
+      @if (e_.reportNumber) {
+        <span class="muted"
+          >{{ text.reportNumber }}: <b>{{ e_.reportNumber }}</b></span
+        >
+        @if (e_.reportDate) {
+          <span class="muted"> · {{ e_.reportDate | date: 'dd/MM/yyyy' }}</span>
+        }
+      }
+    </div>
+  </div>
+
+  @if (item_.unassigned.length) {
+    <nz-alert
+      nzType="warning"
+      nzShowIcon
+      style="margin-top: 8px"
+      [nzMessage]="text.unassigned + ' ' + unassignedNames()"
+    />
+  }
+
+  <div class="grid">
+    <div>
+      <label for="mgr-{{ item_.lineId }}">{{ text.manager }}</label>
+      <nz-select
+        [nzId]="'mgr-' + item_.lineId"
+        nzShowSearch
+        nzAllowClear
+        [nzDisabled]="!item_.canEdit"
+        [ngModel]="managerId()"
+        (ngModelChange)="managerId.set($event)"
+      >
+        @for (u of options(); track u.id) {
+          <nz-option [nzValue]="u.id" [nzLabel]="u.label" />
+        }
+      </nz-select>
+    </div>
+    <div>
+      <label for="lead-{{ item_.lineId }}">{{ text.lead }}</label>
+      <nz-select
+        [nzId]="'lead-' + item_.lineId"
+        nzShowSearch
+        nzAllowClear
+        [nzDisabled]="!item_.canEdit"
+        [ngModel]="leadId()"
+        (ngModelChange)="leadId.set($event)"
+      >
+        @for (u of options(); track u.id) {
+          <nz-option [nzValue]="u.id" [nzLabel]="u.label" />
+        }
+      </nz-select>
+    </div>
+    <div>
+      <label for="ast-{{ item_.lineId }}">{{ text.assistants }}</label>
+      <nz-select
+        [nzId]="'ast-' + item_.lineId"
+        nzMode="multiple"
+        nzShowSearch
+        [nzMaxMultipleCount]="10"
+        [nzDisabled]="!item_.canEdit"
+        [ngModel]="assistantIds()"
+        (ngModelChange)="assistantIds.set($event)"
+      >
+        @for (u of options(); track u.id) {
+          <nz-option [nzValue]="u.id" [nzLabel]="u.label" />
+        }
+      </nz-select>
+    </div>
+    <div>
+      <label for="s1-{{ item_.lineId }}">{{ text.signer1 }}</label>
+      <nz-select
+        [nzId]="'s1-' + item_.lineId"
+        nzShowSearch
+        nzAllowClear
+        [nzDisabled]="!item_.canEdit"
+        [ngModel]="signer1Id()"
+        (ngModelChange)="signer1Id.set($event)"
+      >
+        @for (u of options(); track u.id) {
+          <nz-option [nzValue]="u.id" [nzLabel]="u.label" />
+        }
+      </nz-select>
+    </div>
+    <div>
+      <label for="s2-{{ item_.lineId }}">{{ text.signer2 }}</label>
+      <nz-select
+        [nzId]="'s2-' + item_.lineId"
+        nzShowSearch
+        nzAllowClear
+        [nzDisabled]="!item_.canEdit"
+        [ngModel]="signer2Id()"
+        (ngModelChange)="signer2Id.set($event)"
+      >
+        @for (u of options(); track u.id) {
+          <nz-option [nzValue]="u.id" [nzLabel]="u.label" />
+        }
+      </nz-select>
+    </div>
+  </div>
+
+  <h4>{{ text.deadlines }}</h4>
+  <p class="muted">{{ locked() ? text.deadlinesLocked : text.deadlinesOpen }}</p>
+  @if (!locked()) {
+    <div class="grid">
+      @for (kind of kinds; track kind) {
+        <div>
+          <label for="due-{{ kind }}-{{ item_.lineId }}">{{ kindLabels[kind] }}</label>
+          <nz-date-picker
+            [nzId]="'due-' + kind + '-' + item_.lineId"
+            nzFormat="dd/MM/yyyy"
+            [nzDisabled]="!item_.canEdit"
+            [ngModel]="dues()[kind]"
+            (ngModelChange)="setDue(kind, $event)"
+          />
+        </div>
+      }
+    </div>
+    @if (e_.suggestedIssueDue && item_.canEdit) {
+      <p class="muted">
+        {{ text.suggestedIssueDue((e_.suggestedIssueDue | date: 'dd/MM/yyyy') ?? '') }}
+        <button nz-button nzType="link" nzSize="small" type="button" (click)="useSuggestion()">
+          {{ text.useSuggestion }}
+        </button>
+      </p>
+    }
+  }
+  @if (e_.deadlines.length) {
+    <nz-table
+      [nzData]="e_.deadlines"
+      [nzShowPagination]="false"
+      nzSize="small"
+      [nzScroll]="{ x: '640px' }"
+    >
+      <thead>
+        <tr>
+          <th>{{ text.kind }}</th>
+          <th>{{ text.originalDue }}</th>
+          <th>{{ text.currentDue }}</th>
+          <th>{{ text.result }}</th>
+          <th nzWidth="90px"></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (d of e_.deadlines; track d.kind) {
+          <tr>
+            <td>{{ kindLabels[d.kind] }}</td>
+            <td>{{ d.originalDue | date: 'dd/MM/yyyy' }}</td>
+            <td>
+              {{ d.currentDue | date: 'dd/MM/yyyy' }}
+              @if (d.extended) {
+                <span class="muted">({{ text.extended }})</span>
+              }
+              @for (c of d.changes; track c.changedAt) {
+                <div class="muted">
+                  {{ (c.oldDue | date: 'dd/MM') ?? '—' }} → {{ c.newDue | date: 'dd/MM/yyyy' }}:
+                  {{ c.reason }} · {{ c.changedBy?.fullName }}
+                </div>
+              }
+            </td>
+            <td>
+              <nz-tag [nzColor]="resultLabels[d.current.result].color">{{
+                resultLabels[d.current.result].label
+              }}</nz-tag>
+              <span class="muted">{{ text.dayNote(d.current.result, d.current.days) }}</span>
+            </td>
+            <td>
+              @if (item_.canExtend && !d.achievedAt) {
+                <button nz-button nzSize="small" type="button" (click)="open('extend', d.kind)">
+                  {{ text.extend }}
+                </button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </nz-table>
+  }
+
+  <div class="actions">
+    @if (item_.canEdit) {
+      <button nz-button nzType="primary" type="button" [nzLoading]="busy()" (click)="submitTeam()">
+        {{ text.save }}
+      </button>
+      @if (nextStage(); as ns) {
+        <button nz-button type="button" [disabled]="busy()" (click)="next()">
+          {{ text.next(stageLabels[ns].label) }}
+        </button>
+      }
+      @if (previousStages().length) {
+        <button nz-button type="button" [disabled]="busy()" (click)="open('back')">
+          {{ text.back }}
+        </button>
+      }
+    }
+    @if (item_.canIssue && e_.stage === 'AWAITING_ISSUE') {
+      <button nz-button nzType="primary" type="button" [disabled]="busy()" (click)="open('issue')">
+        {{ text.issue }}
+      </button>
+    }
+    @if (item_.canIssue && e_.stage === 'ISSUED') {
+      <button nz-button nzDanger type="button" [disabled]="busy()" (click)="open('reopen')">
+        {{ text.reopen }}
+      </button>
+    }
+  </div>
+
+  @if (e_.timeline.length) {
+    <h4>{{ text.timeline }}</h4>
+    <ul class="timeline">
+      @for (t of e_.timeline; track t.occurredAt) {
+        <li>
+          {{ t.occurredAt | date: 'dd/MM/yyyy HH:mm' }} · {{ stageLabels[t.from].label }} →
+          <b>{{ stageLabels[t.to].label }}</b> · {{ t.actor?.fullName }}
+          @if (t.reason) {
+            <span class="muted">— {{ t.reason }}</span>
+          }
+        </li>
+      }
+    </ul>
+  }
+</div>
+
+<nz-modal
+  [nzVisible]="mode() !== null"
+  [nzTitle]="
+    mode() === 'issue'
+      ? text.issueTitle
+      : mode() === 'reopen'
+        ? text.reopenTitle
+        : mode() === 'extend'
+          ? text.extendTitle(kindLabels[extendKind()])
+          : text.backTitle
+  "
+  [nzOkText]="text.confirm"
+  [nzCancelText]="text.cancel"
+  [nzOkLoading]="busy()"
+  [nzOkDisabled]="!modalValid()"
+  (nzOnOk)="confirm()"
+  (nzOnCancel)="mode.set(null)"
+>
+  <ng-container *nzModalContent>
+    @if (mode() === 'back') {
+      <div class="modal-field">
+        <label for="back-to">{{ text.backTo }}</label>
+        <nz-select nzId="back-to" [ngModel]="backTo()" (ngModelChange)="backTo.set($event)">
+          @for (s of previousStages(); track s) {
+            <nz-option [nzValue]="s" [nzLabel]="stageLabels[s].label" />
+          }
+        </nz-select>
+      </div>
+    }
+    @if (mode() === 'extend') {
+      <div class="modal-field">
+        <label for="new-due">{{ text.newDue }}</label>
+        <nz-date-picker
+          nzId="new-due"
+          nzFormat="dd/MM/yyyy"
+          [ngModel]="newDue()"
+          (ngModelChange)="newDue.set($event)"
+        />
+      </div>
+    }
+    @if (mode() === 'issue') {
+      <div class="modal-field">
+        <label for="report-number">{{ text.reportNumber }}</label>
+        <input
+          id="report-number"
+          nz-input
+          maxlength="100"
+          [ngModel]="reportNumber()"
+          (ngModelChange)="reportNumber.set($event)"
+        />
+      </div>
+      <div class="modal-field">
+        <label for="report-date">{{ text.reportDate }}</label>
+        <nz-date-picker
+          nzId="report-date"
+          nzFormat="dd/MM/yyyy"
+          [ngModel]="reportDate()"
+          (ngModelChange)="reportDate.set($event)"
+        />
+      </div>
+      <div class="modal-field">
+        <label for="issue-signer">{{ text.signer1 }}</label>
+        <nz-select
+          nzId="issue-signer"
+          nzShowSearch
+          [ngModel]="issueSigner()"
+          (ngModelChange)="issueSigner.set($event)"
+        >
+          @for (u of options(); track u.id) {
+            <nz-option [nzValue]="u.id" [nzLabel]="u.label" />
+          }
+        </nz-select>
+      </div>
+      <div class="modal-field">
+        <label for="report-file">{{ text.reportFile }}</label>
+        <input id="report-file" type="file" accept="application/pdf" (change)="onFile($event)" />
+      </div>
+    } @else {
+      <div class="modal-field">
+        <label for="modal-reason">{{ text.reason }}</label>
+        <textarea
+          id="modal-reason"
+          nz-input
+          rows="3"
+          maxlength="500"
+          [ngModel]="reason()"
+          (ngModelChange)="reason.set($event)"
+        ></textarea>
+      </div>
+    }
+  </ng-container>
+</nz-modal>

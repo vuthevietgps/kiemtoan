@@ -1,0 +1,48 @@
+.filters {
+  align-items: center;
+
+  nz-select {
+    width: 180px;
+  }
+
+  .check {
+    min-width: auto;
+    white-space: nowrap;
+  }
+
+  .search {
+    width: 260px;
+    max-width: 100%;
+  }
+
+  nz-radio-group {
+    min-width: auto;
+  }
+
+  .spacer {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .filters nz-select,
+  .filters .search {
+    width: 100%;
+  }
+}
+
+.bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #e6f4ff;
+
+  nz-select {
+    min-width: 200px;
+  }
+}

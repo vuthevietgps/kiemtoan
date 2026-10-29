@@ -1,0 +1,29 @@
+<div class="filters">
+  <input nz-input [placeholder]="text.search" [(ngModel)]="search" (keyup.enter)="queryChange.emit({search:search,page:1})" />
+  <nz-select nzAllowClear [nzPlaceHolder]="text.allCategories" [(ngModel)]="filterCategory" (ngModelChange)="queryChange.emit({category:$event,page:1})">@for (category of categories; track category.value) { <nz-option [nzValue]="category.value" [nzLabel]="category.label" /> }</nz-select>
+  <nz-select nzAllowClear [nzPlaceHolder]="text.contract" [(ngModel)]="filterContract" (ngModelChange)="queryChange.emit({contractId:$event,page:1})">@for (contract of contracts(); track contract.id) { <nz-option [nzValue]="contract.id" [nzLabel]="contract.code" /> }</nz-select>
+  <input nz-input [placeholder]="text.period" [(ngModel)]="period" (keyup.enter)="queryChange.emit({period:period || null,page:1})" />
+</div>
+@if (canUpload()) {
+  <div class="upload-bar">
+    @if (target(); as target) { <strong>{{ text.newVersion }}: {{ target.fileName }}</strong><button nz-button [disabled]="busy()" (click)="reset()">{{ text.cancel }}</button> }
+    @else {
+      <nz-select [(ngModel)]="category">@for (category of categories; track category.value) { <nz-option [nzValue]="category.value" [nzLabel]="category.label" /> }</nz-select>
+      <nz-select nzAllowClear [nzPlaceHolder]="text.contract" [(ngModel)]="contractId">@for (contract of contracts(); track contract.id) { <nz-option [nzValue]="contract.id" [nzLabel]="contract.code" /> }</nz-select>
+    }
+    <input nz-input [placeholder]="text.note" [(ngModel)]="note" maxlength="2000" />
+    <label>{{ text.file }}<input type="file" accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx,.pptx" [disabled]="busy()" (change)="select($event)" /></label>
+  </div>
+  @if (invalid) { <p class="error">{{ text.invalid }}</p> }
+}
+<nz-table [nzData]="items()" [nzShowPagination]="false" [nzFrontPagination]="false" [nzScroll]="{x:'900px'}" [nzNoResult]="text.empty">
+  <thead><tr><th>{{ text.name }}</th><th>{{ text.category }}</th><th>{{ text.period }}</th><th>{{ text.version }}</th><th>{{ text.date }}</th><th></th></tr></thead>
+  <tbody>@for (document of items(); track document.id) { <tr>
+    <td>{{ document.fileName }}</td><td>@for (category of categories; track category.value) { @if (category.value === document.category) { {{ category.label }} } }</td><td>{{ document.period }}</td><td>{{ document.version }}</td><td>{{ document.createdAt | date:'dd/MM/yyyy HH:mm' }}</td>
+    <td><button nz-button [disabled]="busy()" (click)="history.emit(document)">{{ text.history }}</button><button nz-button [disabled]="busy()" (click)="download.emit(document)">{{ text.download }}</button>
+      @if (canUpload()) { <button nz-button [disabled]="busy()" (click)="target.set(document)">{{ text.newVersion }}</button> }
+      @if (canDelete()) { <button nz-button nzDanger nz-popconfirm [nzPopconfirmTitle]="text.confirmRemove" [disabled]="busy()" (nzOnConfirm)="remove.emit(document.id)">{{ text.remove }}</button> }
+    </td>
+  </tr> }</tbody>
+</nz-table>
+<nz-pagination [nzPageIndex]="page()" [nzTotal]="total()" [nzPageSize]="20" (nzPageIndexChange)="queryChange.emit({page:$event})" />

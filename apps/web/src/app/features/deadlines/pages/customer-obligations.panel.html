@@ -1,0 +1,35 @@
+@if (store.error()) {
+  <nz-alert class="notice" nzType="error" nzShowIcon [nzMessage]="store.error()" />
+}
+@if (store.actionError() && !store.detail()) {
+  <nz-alert class="notice" nzType="error" nzShowIcon [nzMessage]="store.actionError()" />
+}
+<app-obligation-settings
+  class="settings"
+  [settings]="store.settings()"
+  [canUpdate]="canUpdate()"
+  [busy]="store.busy()"
+  (changeSetting)="changeSetting($event)"
+/>
+<app-obligation-table
+  [items]="store.items()"
+  [total]="store.total()"
+  [page]="store.query().page"
+  [pageSize]="store.query().pageSize"
+  [loading]="store.loading()"
+  [showCustomer]="false"
+  (open)="store.open($event)"
+  (pageChange)="store.setQuery({ page: $event })"
+/>
+<app-obligation-drawer
+  [detail]="store.detail()"
+  [busy]="store.busy()"
+  [error]="store.actionError()"
+  [canUpdate]="canUpdate()"
+  [canApprove]="canApprove()"
+  (closed)="store.close()"
+  (action)="act($event)"
+  (openTask)="openTask($event)"
+  (openCustomer)="store.close()"
+  (downloadReceipt)="download($event)"
+/>

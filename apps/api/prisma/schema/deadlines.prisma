@@ -1,0 +1,221 @@
+// Module: deadlines (đặc tả 06 — lịch làm việc, loại nghĩa vụ pháp lý, lịch báo cáo theo khách hàng)
+
+enum CalendarYearStatus {
+  DRAFT // Nháp — chưa dùng để tính, hệ thống tính thứ 2–6 (I2)
+  CONFIRMED // Đã xác nhận (Giám đốc)
+}
+
+enum CalendarDayKind {
+  DAY_OFF // Ngày nghỉ: lễ, Tết, nghỉ bù
+  WORKDAY // Ngày làm bù (thứ 7/CN đi làm)
+}
+
+enum ObligationGroup {
+  TAX // Thuế
+  FINANCIAL_STATEMENT // Báo cáo tài chính
+  OTHER
+}
+
+enum ObligationCycle {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum ObligationDueRule {
+  MONTH_AFTER_END // Ngày N của tháng thứ K sau tháng cuối kỳ (N = 31: ngày cuối tháng)
+  FIXED_IN_YEAR // Ngày/tháng cố định trong năm của kỳ
+}
+
+enum HolidayShift {
+  NEXT // Sang ngày làm việc kế tiếp
+  PREVIOUS // Về ngày làm việc trước
+}
+
+enum ObligationVersionStatus {
+  DRAFT
+  CONFIRMED
+}
+
+enum ObligationStatus {
+  NOT_DUE // Chưa đến hạn (quá hạn mà chưa nộp hiển thị "Trễ hạn")
+  PREPARING // Đang chuẩn bị
+  FILED // Đã nộp
+  NOT_APPLICABLE // Không áp dụng
+}
+
+// Lịch làm việc theo năm (I2). Năm chưa có dòng hoặc chưa xác nhận: tính thứ 2–6.
+model BusinessCalendarYear {
+  year          Int                @id
+  status        CalendarYearStatus @default(DRAFT)
+  revision      Int                @default(1)
+  confirmedById String?            @map("confirmed_by_id") @db.Uuid
+  confirmedAt   DateTime?          @map("confirmed_at") @db.Timestamptz
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  days BusinessCalendarDay[]
+
+  @@map("business_calendar_years")
+}
+
+model BusinessCalendarDay {
+  id          String          @id @default(uuid()) @db.Uuid
+  year        Int
+  date        DateTime        @unique @db.Date
+  kind        CalendarDayKind
+  name        String
+  createdById String?         @map("created_by_id") @db.Uuid
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz
+
+  calendarYear BusinessCalendarYear @relation(fields: [year], references: [year], onDelete: Cascade)
+
+  @@index([year])
+  @@map("business_calendar_days")
+}
+
+// Loại nghĩa vụ pháp lý (I1). `family` gom các biến thể thay thế nhau (GTGT tháng/quý) để bước quy
+// trình gắn một loại vẫn tìm đúng biến thể theo hồ sơ khách hàng.
+model ObligationType {
+  id           String          @id @default(uuid()) @db.Uuid
+  code         String          @unique
+  name         String
+  group        ObligationGroup @default(TAX)
+  family       String
+  cycle        ObligationCycle
+  retiredAt    DateTime?       @map("retired_at") @db.Timestamptz
+  retiredById  String?         @map("retired_by_id") @db.Uuid
+  retireReason String?         @map("retire_reason")
+  createdById  String?         @map("created_by_id") @db.Uuid
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  versions      ObligationTypeVersion[]
+  services      ServiceObligationType[]
+  settings      CustomerObligationSetting[]
+  obligations   CustomerObligation[]
+  workflowSteps WorkflowStep[]
+  planSteps     ContractPlanStep[]
+
+  @@index([family])
+  @@map("obligation_types")
+}
+
+// Phiên bản quy tắc hạn. Mỗi loại tối đa một bản nháp (unique một phần trong migration); phiên bản
+// đã xác nhận áp cho kỳ có ngày cuối kỳ ≥ effective_from, bản mới nhất thắng.
+model ObligationTypeVersion {
+  id            String                  @id @default(uuid()) @db.Uuid
+  typeId        String                  @map("type_id") @db.Uuid
+  versionNo     Int                     @map("version_no")
+  status        ObligationVersionStatus @default(DRAFT)
+  revision      Int                     @default(1)
+  effectiveFrom DateTime                @map("effective_from") @db.Date
+  dueRule       ObligationDueRule       @map("due_rule")
+  monthsAfter   Int?                    @map("months_after")
+  dueMonth      Int?                    @map("due_month")
+  dueDay        Int                     @map("due_day")
+  /// Kỳ năm theo năm tài chính của khách hàng (không thì theo năm dương lịch).
+  useFiscalYear Boolean                 @default(true) @map("use_fiscal_year")
+  holidayShift  HolidayShift            @default(NEXT) @map("holiday_shift")
+  /// Điều kiện áp dụng theo hồ sơ khách hàng: { taxPeriod?, vatMethod?, pitPeriod?, accountingRegime? }.
+  conditions    Json                    @default("{}")
+  legalBasis    String?                 @map("legal_basis")
+  note          String?
+  createdById   String?                 @map("created_by_id") @db.Uuid
+  confirmedById String?                 @map("confirmed_by_id") @db.Uuid
+  confirmedAt   DateTime?               @map("confirmed_at") @db.Timestamptz
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+
+  type        ObligationType       @relation(fields: [typeId], references: [id], onDelete: Cascade)
+  obligations CustomerObligation[]
+
+  @@unique([typeId, versionNo])
+  @@map("obligation_type_versions")
+}
+
+// Dịch vụ ↔ loại nghĩa vụ (I4): khách hàng có dòng HĐ hiệu lực của dịch vụ thì sinh lịch báo cáo.
+model ServiceObligationType {
+  serviceTypeId    String   @map("service_type_id") @db.Uuid
+  obligationTypeId String   @map("obligation_type_id") @db.Uuid
+  createdById      String?  @map("created_by_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  serviceType    ServiceType    @relation(fields: [serviceTypeId], references: [id], onDelete: Cascade)
+  obligationType ObligationType @relation(fields: [obligationTypeId], references: [id], onDelete: Cascade)
+
+  @@id([serviceTypeId, obligationTypeId])
+  @@index([obligationTypeId])
+  @@map("service_obligation_types")
+}
+
+// Bật/tắt một loại nghĩa vụ cho riêng khách hàng, kèm lý do (I4).
+model CustomerObligationSetting {
+  customerId       String   @map("customer_id") @db.Uuid
+  obligationTypeId String   @map("obligation_type_id") @db.Uuid
+  enabled          Boolean
+  reason           String
+  updatedById      String   @map("updated_by_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  customer       Customer       @relation(fields: [customerId], references: [id])
+  obligationType ObligationType @relation(fields: [obligationTypeId], references: [id])
+
+  @@id([customerId, obligationTypeId])
+  @@map("customer_obligation_settings")
+}
+
+// Lịch báo cáo: một nghĩa vụ của khách hàng trong một kỳ (I4, I7).
+model CustomerObligation {
+  id                String           @id @default(uuid()) @db.Uuid
+  customerId        String           @map("customer_id") @db.Uuid
+  obligationTypeId  String           @map("obligation_type_id") @db.Uuid
+  versionId         String           @map("version_id") @db.Uuid
+  period            String
+  periodEnd         DateTime         @map("period_end") @db.Date
+  dueDate           DateTime         @map("due_date") @db.Date
+  /// Hạn lúc sinh; đổi theo lịch/quy tắc (I8) chỉ đổi due_date.
+  originalDueDate   DateTime         @map("original_due_date") @db.Date
+  status            ObligationStatus @default(NOT_DUE)
+  /// Không áp dụng do người dùng chọn — đồng bộ tự động không đổi lại.
+  manuallyExcluded  Boolean          @default(false) @map("manually_excluded")
+  filedAt           DateTime?        @map("filed_at") @db.Date
+  filedLate         Boolean          @default(false) @map("filed_late")
+  filedById         String?          @map("filed_by_id") @db.Uuid
+  receiptDocumentId String?          @map("receipt_document_id") @db.Uuid
+  note              String?
+  revision          Int              @default(1)
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  customer        Customer                  @relation(fields: [customerId], references: [id])
+  obligationType  ObligationType            @relation(fields: [obligationTypeId], references: [id])
+  version         ObligationTypeVersion     @relation(fields: [versionId], references: [id])
+  receiptDocument Document?                 @relation(fields: [receiptDocumentId], references: [id])
+  events          CustomerObligationEvent[]
+  tasks           Task[]
+
+  @@unique([customerId, obligationTypeId, period])
+  @@index([dueDate])
+  @@index([status, dueDate])
+  @@map("customer_obligations")
+}
+
+// Lịch sử nghĩa vụ: chỉ thêm, không sửa/xoá.
+model CustomerObligationEvent {
+  id           String            @id @default(uuid()) @db.Uuid
+  obligationId String            @map("obligation_id") @db.Uuid
+  fromStatus   ObligationStatus? @map("from_status")
+  toStatus     ObligationStatus  @map("to_status")
+  oldDue       DateTime?         @map("old_due") @db.Date
+  newDue       DateTime?         @map("new_due") @db.Date
+  note         String?
+  actorId      String?           @map("actor_id") @db.Uuid
+  occurredAt   DateTime          @default(now()) @map("occurred_at") @db.Timestamptz
+
+  obligation CustomerObligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+
+  @@index([obligationId, occurredAt])
+  @@map("customer_obligation_events")
+}

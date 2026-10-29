@@ -1,0 +1,216 @@
+// Module: customers, documents, client-credentials
+
+enum CustomerStatus {
+  PROSPECT // Tiềm năng
+  ACTIVE // Đang phục vụ
+  PAUSED // Tạm ngưng
+  STOPPED // Đã ngừng
+}
+
+enum TaxPeriod {
+  MONTHLY
+  QUARTERLY
+}
+
+// Trường thuế–kế toán dùng để sinh lịch báo cáo (đặc tả 06, I5).
+enum VatMethod {
+  DEDUCTION // Khấu trừ
+  DIRECT // Trực tiếp
+  NONE // Không kê khai GTGT
+}
+
+enum PitPeriod {
+  MONTHLY
+  QUARTERLY
+  NONE // Không khấu trừ TNCN
+}
+
+enum AccountingRegime {
+  TT200
+  TT133
+  OTHER
+}
+
+model Customer {
+  id                 String            @id @default(uuid()) @db.Uuid
+  name               String
+  taxCode            String            @unique @map("tax_code")
+  address            String?
+  legalRep           String?           @map("legal_rep")
+  businessType       String?           @map("business_type")
+  taxPeriod          TaxPeriod         @default(MONTHLY) @map("tax_period")
+  /// Tháng kết thúc năm tài chính (1–12), mặc định 12 (06, I5).
+  fiscalYearEndMonth Int               @default(12) @map("fiscal_year_end_month")
+  vatMethod          VatMethod?        @map("vat_method")
+  pitPeriod          PitPeriod?        @map("pit_period")
+  accountingRegime   AccountingRegime? @map("accounting_regime")
+  taxAuthority       String?           @map("tax_authority")
+  status             CustomerStatus    @default(ACTIVE)
+  contactName        String?           @map("contact_name")
+  contactPhone       String?           @map("contact_phone")
+  contactEmail       String?           @map("contact_email")
+  note               String?
+  ownerId            String?           @map("owner_id") @db.Uuid
+  createdById        String?           @map("created_by_id") @db.Uuid
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt          DateTime?         @map("deleted_at") @db.Timestamptz
+
+  owner              User?                       @relation("CustomerOwner", fields: [ownerId], references: [id])
+  contracts          Contract[]
+  tasks              Task[]
+  documents          Document[]
+  credentials        ClientCredential[]
+  contacts           CustomerContact[]
+  assignments        CustomerAssignment[]
+  obligationSettings CustomerObligationSetting[]
+  obligations        CustomerObligation[]
+
+  @@index([ownerId])
+  @@map("customers")
+}
+
+model CustomerContact {
+  id          String    @id @default(uuid()) @db.Uuid
+  customerId  String    @map("customer_id") @db.Uuid
+  fullName    String    @map("full_name")
+  title       String?
+  phone       String?
+  email       String?
+  note        String?
+  isPrimary   Boolean   @default(false) @map("is_primary")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz
+  customer    Customer  @relation(fields: [customerId], references: [id])
+
+  @@index([customerId, deletedAt])
+  @@map("customer_contacts")
+}
+
+model CustomerAssignment {
+  id           String    @id @default(uuid()) @db.Uuid
+  customerId   String    @map("customer_id") @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  assignedById String    @map("assigned_by_id") @db.Uuid
+  note         String?
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz
+  customer     Customer  @relation(fields: [customerId], references: [id])
+  user         User      @relation("CustomerAssignee", fields: [userId], references: [id])
+
+  @@unique([customerId, userId])
+  @@index([userId, deletedAt])
+  @@map("customer_assignments")
+}
+
+model CustomerImportBatch {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  payload   Json
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  usedAt    DateTime? @map("used_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([userId, expiresAt])
+  @@map("customer_import_batches")
+}
+
+enum DocumentCategory {
+  LEGAL // Hồ sơ pháp lý
+  CONTRACT // Hợp đồng
+  SERVICE // Tài liệu dịch vụ theo kỳ
+  EVIDENCE // Bằng chứng công việc
+  PAYMENT // Chứng từ thu tiền (07)
+  OTHER
+}
+
+model Document {
+  id                 String               @id @default(uuid()) @db.Uuid
+  customerId         String               @map("customer_id") @db.Uuid
+  contractId         String?              @map("contract_id") @db.Uuid
+  taskId             String?              @map("task_id") @db.Uuid
+  category           DocumentCategory     @default(OTHER)
+  period             String? // ví dụ "2025-10"
+  fileName           String               @map("file_name")
+  storedName         String               @map("stored_name")
+  mimeType           String               @map("mime_type")
+  size               Int
+  note               String?
+  uploadedById       String               @map("uploaded_by_id") @db.Uuid
+  createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt          DateTime?            @map("deleted_at") @db.Timestamptz
+  version            Int                  @default(1)
+  versions           DocumentVersion[]
+  contractDocument   ContractDocument?
+  obligationReceipts CustomerObligation[]
+  paymentLinks       PaymentDocument[]
+
+  customer   Customer  @relation(fields: [customerId], references: [id])
+  contract   Contract? @relation(fields: [contractId], references: [id])
+  task       Task?     @relation(fields: [taskId], references: [id])
+  uploadedBy User      @relation(fields: [uploadedById], references: [id])
+
+  @@index([customerId, category])
+  @@index([contractId])
+  @@index([taskId])
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id           String   @id @default(uuid()) @db.Uuid
+  documentId   String   @map("document_id") @db.Uuid
+  version      Int
+  fileName     String   @map("file_name")
+  storedName   String   @map("stored_name")
+  mimeType     String   @map("mime_type")
+  size         Int
+  note         String?
+  uploadedById String   @map("uploaded_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  document     Document @relation(fields: [documentId], references: [id])
+
+  @@unique([documentId, version])
+  @@map("document_versions")
+}
+
+enum CredentialType {
+  TAX_PORTAL // Cổng thuế điện tử
+  SOCIAL_INSURANCE // BHXH
+  E_INVOICE // Hoá đơn điện tử
+  EMAIL
+  DIGITAL_SIGNATURE // Chữ ký số (token)
+  OTHER
+}
+
+enum CredentialStatus {
+  ACTIVE // Đang dùng được
+  ERROR // Lỗi đăng nhập
+  NEED_CHANGE // Cần đổi mật khẩu
+}
+
+model ClientCredential {
+  id          String           @id @default(uuid()) @db.Uuid
+  customerId  String           @map("customer_id") @db.Uuid
+  type        CredentialType
+  label       String?
+  url         String?
+  username    String
+  passwordEnc String           @map("password_enc") // AES-256-GCM, không bao giờ trả về nguyên dạng
+  expiresAt   DateTime?        @map("expires_at") @db.Date // dùng cho chữ ký số
+  status      CredentialStatus @default(ACTIVE)
+  note        String?
+  updatedById String?          @map("updated_by_id") @db.Uuid
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt   DateTime?        @map("deleted_at") @db.Timestamptz
+
+  customer  Customer @relation(fields: [customerId], references: [id])
+  updatedBy User?    @relation(fields: [updatedById], references: [id])
+
+  @@index([customerId])
+  @@map("client_credentials")
+}

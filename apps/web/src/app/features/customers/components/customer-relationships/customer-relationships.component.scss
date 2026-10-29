@@ -1,0 +1,12 @@
+h3 { margin-top: 24px; }
+td { overflow-wrap: anywhere; }
+td button { margin: 3px; }
+form, .assignment-form { margin-top: 16px; }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+label { display: block; margin-bottom: 12px; }
+.actions { display: flex; gap: 8px; }
+.assignment-form { display: flex; flex-wrap: wrap; gap: 8px; }
+.assignment-form nz-select { width: 320px; max-width: 100%; }
+.assignment-form input { width: 240px; max-width: 100%; }
+.error { color: #cf1322; }
+@media (max-width: 600px) { .fields { grid-template-columns: 1fr; } }

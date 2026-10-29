@@ -1,0 +1,67 @@
+<div class="filters">
+  <nz-select
+    nzShowSearch
+    nzAllowClear
+    [nzPlaceHolder]="text.allCustomers"
+    [ngModel]="filters().customerId"
+    (ngModelChange)="set('customerId', $event)"
+  >
+    @for (c of customers(); track c.id) {
+      <nz-option [nzValue]="c.id" [nzLabel]="c.name" />
+    }
+  </nz-select>
+
+  @if (showUser()) {
+    <nz-select
+      nzShowSearch
+      nzAllowClear
+      [nzPlaceHolder]="text.allUsers"
+      [ngModel]="filters().userId"
+      (ngModelChange)="set('userId', $event)"
+    >
+      @for (u of users(); track u.id) {
+        <nz-option [nzValue]="u.id" [nzLabel]="u.fullName" />
+      }
+    </nz-select>
+  }
+
+  @if (showTypes()) {
+    <nz-select
+      nzShowSearch
+      nzAllowClear
+      [nzPlaceHolder]="text.allTypes"
+      [ngModel]="filters().obligationTypeId"
+      (ngModelChange)="set('obligationTypeId', $event)"
+    >
+      @for (t of types(); track t.id) {
+        <nz-option [nzValue]="t.id" [nzLabel]="t.code + ' — ' + t.name" />
+      }
+    </nz-select>
+
+    <nz-select
+      nzAllowClear
+      [nzPlaceHolder]="text.allKinds"
+      [ngModel]="filters().kind"
+      (ngModelChange)="set('kind', $event)"
+    >
+      @for (k of kinds; track k[0]) {
+        <nz-option [nzValue]="k[0]" [nzLabel]="k[1]" />
+      }
+    </nz-select>
+  }
+
+  <nz-select
+    nzAllowClear
+    [nzPlaceHolder]="text.allStatuses"
+    [ngModel]="filters().status"
+    (ngModelChange)="set('status', $event)"
+  >
+    @for (s of statuses; track s[0]) {
+      <nz-option [nzValue]="s[0]" [nzLabel]="s[1]" />
+    }
+  </nz-select>
+
+  @if (hasAny()) {
+    <button nz-button nzType="link" type="button" (click)="reset()">{{ text.reset }}</button>
+  }
+</div>

@@ -1,0 +1,63 @@
+<nz-drawer
+  [nzVisible]="!!event()"
+  [nzWidth]="width()"
+  [nzTitle]="event() ? heading(event()!) : ''"
+  (nzOnClose)="closed.emit()"
+>
+  <ng-container *nzDrawerContent>
+    @if (event(); as e) {
+      <h3 class="title">{{ e.kind === 'OBLIGATION' ? e.code + ' — ' + e.title : e.title }}</h3>
+      <div class="tags">
+        @if (e.kind === 'OBLIGATION') {
+          <nz-tag [nzColor]="e.status === 'OVERDUE' ? 'red' : e.done ? 'green' : 'blue'">
+            {{ obligationLabels[e.status] }}
+          </nz-tag>
+          @if (e.filedLate) {
+            <nz-tag nzColor="orange">{{ text.filedLate }}</nz-tag>
+          }
+        } @else {
+          <nz-tag [nzColor]="taskColors[e.status]">{{ taskLabels[e.status] }}</nz-tag>
+        }
+        <app-urgency-tag [urgency]="e.urgency" />
+      </div>
+
+      <dl class="fields">
+        <dt>{{ text.customer }}</dt>
+        <dd>{{ e.customer.name }}</dd>
+        <dt>{{ text.dueDate }}</dt>
+        <dd>{{ e.date | date: 'dd/MM/yyyy' }}</dd>
+        <dt>{{ text.period }}</dt>
+        <dd>{{ e.period ?? text.none }}</dd>
+        <dt>{{ e.kind === 'OBLIGATION' ? text.owner : text.assignee }}</dt>
+        <dd>{{ e.person?.fullName ?? text.none }}</dd>
+      </dl>
+
+      @if (e.kind === 'OBLIGATION') {
+        <h4>{{ text.linkedTasks }}</h4>
+        @for (t of e.tasks; track t.id) {
+          <button type="button" class="linked" (click)="openTask.emit(t.id)">
+            <span>{{ t.code }} · {{ t.title }}</span>
+            <nz-tag [nzColor]="taskColors[t.status]">{{ taskLabels[t.status] }}</nz-tag>
+          </button>
+        } @empty {
+          <p class="text-muted">{{ text.noLinkedTasks }}</p>
+        }
+      }
+
+      <div class="actions">
+        @if (e.kind === 'TASK') {
+          <button nz-button nzType="primary" type="button" (click)="openTask.emit(e.id)">
+            {{ text.openTask }}
+          </button>
+        } @else {
+          <button nz-button nzType="primary" type="button" (click)="openObligation.emit(e.id)">
+            {{ text.openObligation }}
+          </button>
+        }
+        <button nz-button type="button" (click)="openCustomer.emit(e.customer.id)">
+          {{ text.openCustomer }}
+        </button>
+      </div>
+    }
+  </ng-container>
+</nz-drawer>

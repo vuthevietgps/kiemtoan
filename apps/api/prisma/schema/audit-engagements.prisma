@@ -1,0 +1,176 @@
+// Theo dõi hợp đồng kiểm toán (đặc tả 04-F). Người dùng lưu bằng id, kiểm tra còn hoạt động ở
+// service (như 04-D) để không thêm quan hệ ngược vào users.prisma.
+
+enum AuditStage {
+  NOT_STARTED // Chưa thực hiện
+  FIELDWORK // Đang kiểm toán
+  REVIEW // Đang soát xét
+  AWAITING_ISSUE // Chờ phát hành
+  ISSUED // Đã phát hành
+}
+
+enum AuditRole {
+  MANAGER
+  LEAD // Trưởng nhóm
+  SIGNER1
+  SIGNER2
+  ASSISTANT // Trợ lý
+}
+
+enum AuditDeadlineKind {
+  FIELDWORK_END // Kết thúc kiểm toán — đạt khi sang Đang soát xét lần đầu
+  REVIEW_END // Hoàn tất soát xét — đạt khi sang Chờ phát hành lần đầu
+  REPORT_ISSUE // Phát hành BCKT — đạt khi phát hành lần đầu
+}
+
+enum ClientDeliveryStatus {
+  NOT_SENT // Chưa gửi
+  SOFT_COPY // Đã gửi bản mềm
+  SIGNED_SCAN // Đã gửi bản scan đã ký
+  HARD_COPY // Đã gửi bản cứng
+  HARD_AND_SOFT // Đã gửi đủ bản cứng và mềm
+}
+
+enum OriginalFilingStatus {
+  NOT_FILED // Chưa lưu
+  AWAITING_SIGNATURE // Đang chờ bản ký
+  FILED // Đã lưu
+}
+
+enum AcceptanceStatus {
+  NONE // Chưa có
+  AWAITING_SIGNATURE // Đang chờ ký
+  SIGNED // Đã ký
+}
+
+// Một hồ sơ kiểm toán cho mỗi dòng dịch vụ phát hành BCKT (F1); tạo khi lưu lần đầu.
+model AuditEngagement {
+  id                String       @id @default(uuid()) @db.Uuid
+  contractServiceId String       @unique @map("contract_service_id") @db.Uuid
+  stage             AuditStage   @default(NOT_STARTED)
+  /// Mức độ (04-F4, bám bảng LTGroup): dùng chung mã mức ưu tiên của việc (05).
+  priority          TaskPriority @default(NORMAL)
+  managerId         String?      @map("manager_id") @db.Uuid
+  leadId            String?      @map("lead_id") @db.Uuid
+  signer1Id         String?      @map("signer1_id") @db.Uuid
+  signer2Id         String?      @map("signer2_id") @db.Uuid
+  reportNumber      String?      @map("report_number")
+  /// Số BCKT chuẩn hoá (bỏ khoảng trắng đầu/cuối, chữ thường) để chặn trùng toàn công ty (F5).
+  reportNumberKey   String?      @unique @map("report_number_key")
+  reportDate        DateTime?    @map("report_date") @db.Date
+  /// File BCKT trong kho hồ sơ 02 (tuỳ chọn).
+  reportDocumentId  String?      @map("report_document_id") @db.Uuid
+  issuedById        String?      @map("issued_by_id") @db.Uuid
+  issuedAt          DateTime?    @map("issued_at") @db.Timestamptz
+  /// Thời điểm chốt hạn gốc (lần đầu sang Đang kiểm toán); sau đó đổi hạn phải gia hạn (F9).
+  deadlinesLockedAt DateTime?    @map("deadlines_locked_at") @db.Timestamptz
+  revision          Int          @default(1)
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  contractService ContractService              @relation(fields: [contractServiceId], references: [id], onDelete: Cascade)
+  members         AuditEngagementMember[]
+  roleHistory     AuditEngagementRoleHistory[]
+  stageEvents     AuditEngagementStageEvent[]
+  deadlines       AuditEngagementDeadline[]
+  notes           AuditEngagementNote[]
+
+  @@index([stage])
+  @@index([managerId])
+  @@index([leadId])
+  @@map("audit_engagements")
+}
+
+// Trợ lý hiện tại của hồ sơ.
+model AuditEngagementMember {
+  id           String @id @default(uuid()) @db.Uuid
+  engagementId String @map("engagement_id") @db.Uuid
+  userId       String @map("user_id") @db.Uuid
+  sortOrder    Int    @map("sort_order")
+
+  engagement AuditEngagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+
+  @@unique([engagementId, userId])
+  @@index([userId])
+  @@map("audit_engagement_members")
+}
+
+// Ai giữ vai nào từ lúc nào đến lúc nào — để tính trách nhiệm đúng hạn theo F10 (04-F2).
+model AuditEngagementRoleHistory {
+  id           String    @id @default(uuid()) @db.Uuid
+  engagementId String    @map("engagement_id") @db.Uuid
+  role         AuditRole
+  userId       String    @map("user_id") @db.Uuid
+  fromAt       DateTime  @default(now()) @map("from_at") @db.Timestamptz
+  toAt         DateTime? @map("to_at") @db.Timestamptz
+
+  engagement AuditEngagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+
+  @@index([engagementId, role])
+  @@index([userId])
+  @@map("audit_engagement_role_history")
+}
+
+// Mốc chuyển giai đoạn thực tế: chỉ thêm, không sửa/xoá.
+model AuditEngagementStageEvent {
+  id           String     @id @default(uuid()) @db.Uuid
+  engagementId String     @map("engagement_id") @db.Uuid
+  fromStage    AuditStage @map("from_stage")
+  toStage      AuditStage @map("to_stage")
+  reason       String?
+  actorId      String     @map("actor_id") @db.Uuid
+  occurredAt   DateTime   @default(now()) @map("occurred_at") @db.Timestamptz
+
+  engagement AuditEngagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+
+  @@index([engagementId, occurredAt])
+  @@map("audit_engagement_stage_events")
+}
+
+// Hạn của hồ sơ kiểm toán (04-F2): hạn gốc chốt khi bắt đầu kiểm toán, hạn hiện hành sau gia hạn.
+model AuditEngagementDeadline {
+  id           String            @id @default(uuid()) @db.Uuid
+  engagementId String            @map("engagement_id") @db.Uuid
+  kind         AuditDeadlineKind
+  originalDue  DateTime          @map("original_due") @db.Date
+  currentDue   DateTime          @map("current_due") @db.Date
+  /// Lần đầu đạt mốc; lùi giai đoạn hoặc mở lại báo cáo không đổi giá trị này.
+  achievedAt   DateTime?         @map("achieved_at") @db.Timestamptz
+
+  engagement AuditEngagement                 @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  changes    AuditEngagementDeadlineChange[]
+
+  @@unique([engagementId, kind])
+  @@index([currentDue])
+  @@map("audit_engagement_deadlines")
+}
+
+// Lịch sử gia hạn: chỉ thêm, không sửa/xoá.
+model AuditEngagementDeadlineChange {
+  id          String    @id @default(uuid()) @db.Uuid
+  deadlineId  String    @map("deadline_id") @db.Uuid
+  oldDue      DateTime? @map("old_due") @db.Date
+  newDue      DateTime  @map("new_due") @db.Date
+  reason      String
+  changedById String    @map("changed_by_id") @db.Uuid
+  changedAt   DateTime  @default(now()) @map("changed_at") @db.Timestamptz
+
+  deadline AuditEngagementDeadline @relation(fields: [deadlineId], references: [id], onDelete: Cascade)
+
+  @@index([deadlineId, changedAt])
+  @@map("audit_engagement_deadline_changes")
+}
+
+// Báo cáo tình hình cụ thể (04-F4): nhật ký chỉ thêm, không sửa/xoá.
+model AuditEngagementNote {
+  id           String   @id @default(uuid()) @db.Uuid
+  engagementId String   @map("engagement_id") @db.Uuid
+  content      String
+  authorId     String   @map("author_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  engagement AuditEngagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+
+  @@index([engagementId, createdAt])
+  @@map("audit_engagement_notes")
+}
