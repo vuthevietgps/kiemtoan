@@ -1,0 +1,38 @@
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+
+  .search {
+    width: 300px;
+    max-width: 100%;
+  }
+
+  nz-select {
+    width: 180px;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 575px) {
+  .filters .search,
+  .filters nz-select,
+  .filters nz-range-picker {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+}
+
+.badge {
+  margin-left: 6px;
+}
+
+.notice {
+  margin-bottom: 12px;
+}
+
+.panel {
+  min-width: 0;
+}

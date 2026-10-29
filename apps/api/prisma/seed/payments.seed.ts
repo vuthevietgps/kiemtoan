@@ -132,7 +132,17 @@ export async function seedPayments(prisma: PrismaClient): Promise<void> {
   ] of INVOICES) {
     const contract = await prisma.contract.findUnique({
       where: { code: contractCode },
-      include: { _count: { select: { invoices: true } } },
+      include: {
+        _count: { select: { invoices: true } },
+        customer: {
+          select: {
+            name: true,
+            taxCode: true,
+            address: true,
+            contactEmail: true,
+          },
+        },
+      },
     });
     if (!contract) continue;
     if (
@@ -155,6 +165,12 @@ export async function seedPayments(prisma: PrismaClient): Promise<void> {
         issueDate: issueDate ? new Date(issueDate) : null,
         note,
         requestedById: contract.ownerId ?? cashier.id,
+        // 08 K7/K10: người mua chụp từ KH; hoá đơn mẫu không có file nên đánh dấu dữ liệu chuyển đổi.
+        buyerName: contract.customer.name,
+        buyerTaxCode: contract.customer.taxCode,
+        buyerAddress: contract.customer.address,
+        buyerEmail: contract.customer.contactEmail,
+        migrated: true,
       },
     });
   }

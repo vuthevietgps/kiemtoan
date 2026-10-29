@@ -4,7 +4,6 @@ import {
   AuditStage,
   ClientDeliveryStatus,
   ContractStatus,
-  InvoiceStatus,
   OriginalFilingStatus,
   Prisma,
   TaskPriority,
@@ -12,6 +11,10 @@ import {
 import { hasPermission } from '../../../core/access-control/permissions';
 import type { AuthUser } from '../../../core/auth/auth-user.interface';
 import { PrismaService } from '../../../core/prisma/prisma.service';
+import {
+  EFFECTIVE_STATUSES,
+  HOLDING_STATUSES,
+} from '../../invoices/invoice.rules';
 import { COUNTED_PAYMENT } from '../../payments/payment-allocation';
 import { scopedContract } from '../contracts-query.service';
 import { AuditBoardQueryDto } from '../dto/audit-engagement.dto';
@@ -37,8 +40,9 @@ const LINE_SELECT = {
       clientDeliveryStatus: true,
       originalFilingStatus: true,
       acceptanceStatus: true,
+      // 08: chỉ đề nghị đang chờ và hoá đơn còn hiệu lực (bỏ huỷ đề nghị, bị thay thế).
       invoices: {
-        where: { status: { not: InvoiceStatus.CANCELLED } },
+        where: { status: { in: HOLDING_STATUSES } },
         select: { status: true },
       },
     },
@@ -211,7 +215,7 @@ function toRow(line: Line, today: Date, paid?: Prisma.Decimal) {
   const c = line.contract;
   const paidAmount = paid ?? new Prisma.Decimal(0);
   const remaining = Prisma.Decimal.max(c.total.sub(paidAmount), 0);
-  const invoice = c.invoices.some((i) => i.status === InvoiceStatus.ISSUED)
+  const invoice = c.invoices.some((i) => EFFECTIVE_STATUSES.includes(i.status))
     ? 'ISSUED'
     : c.invoices.length
       ? 'REQUESTED'

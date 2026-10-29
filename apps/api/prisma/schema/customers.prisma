@@ -124,6 +124,7 @@ enum DocumentCategory {
   SERVICE // Tài liệu dịch vụ theo kỳ
   EVIDENCE // Bằng chứng công việc
   PAYMENT // Chứng từ thu tiền (07)
+  INVOICE // Hoá đơn (08) — PDF/XML
   OTHER
 }
 
@@ -148,6 +149,7 @@ model Document {
   contractDocument   ContractDocument?
   obligationReceipts CustomerObligation[]
   paymentLinks       PaymentDocument[]
+  invoiceLinks       InvoiceDocument[]
 
   customer   Customer  @relation(fields: [customerId], references: [id])
   contract   Contract? @relation(fields: [contractId], references: [id])

@@ -30,7 +30,8 @@
         "COMPANY_REPRESENTATIVE": "Giám đốc Demo",
         "COMPANY_REPRESENTATIVE_TITLE": "Giám đốc",
         "COMPANY_BANK_ACCOUNT": "0000000000",
-        "COMPANY_BANK_NAME": "Ngân hàng Demo"
+        "COMPANY_BANK_NAME": "Ngân hàng Demo",
+        "COMPANY_BANK_BIN": "970407"
       },
       "port": 3000,
       "url": "http://localhost:3000"
@@ -52,7 +53,8 @@
         "COMPANY_REPRESENTATIVE": "Giám đốc Demo",
         "COMPANY_REPRESENTATIVE_TITLE": "Giám đốc",
         "COMPANY_BANK_ACCOUNT": "0000000000",
-        "COMPANY_BANK_NAME": "Ngân hàng Demo"
+        "COMPANY_BANK_NAME": "Ngân hàng Demo",
+        "COMPANY_BANK_BIN": "970407"
       },
       "port": 3000,
       "url": "http://localhost:3000"
@@ -74,7 +76,8 @@
         "COMPANY_REPRESENTATIVE": "Giám đốc Demo",
         "COMPANY_REPRESENTATIVE_TITLE": "Giám đốc",
         "COMPANY_BANK_ACCOUNT": "0000000000",
-        "COMPANY_BANK_NAME": "Ngân hàng Demo"
+        "COMPANY_BANK_NAME": "Ngân hàng Demo",
+        "COMPANY_BANK_BIN": "970407"
       },
       "port": 3000,
       "url": "http://localhost:3000"
@@ -106,7 +109,11 @@
       ],
       "env": {
         "DATABASE_URL": "postgresql://ketoan:ketoan_dev@localhost:5433/ketoan_mig_07c",
-        "REMINDERS_ENABLED": "false"
+        "REMINDERS_ENABLED": "false",
+        "COMPANY_NAME": "Công ty TNHH Kế toán Demo",
+        "COMPANY_BANK_ACCOUNT": "19036789012",
+        "COMPANY_BANK_NAME": "Techcombank",
+        "COMPANY_BANK_BIN": "970407"
       },
       "port": 3000,
       "url": "http://localhost:3000"

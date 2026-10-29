@@ -17,7 +17,7 @@ import { RECEIVABLES_TEXT } from '../payments.text';
       [nzData]="items()"
       [nzLoading]="loading()"
       [nzShowPagination]="false"
-      [nzScroll]="{ x: '1100px' }"
+      [nzScroll]="{ x: '1190px' }"
       [nzNoResult]="text.emptyDue"
       nzSize="middle"
     >
@@ -30,7 +30,7 @@ import { RECEIVABLES_TEXT } from '../payments.text';
           <th nzWidth="150px">{{ text.status }}</th>
           <th nzWidth="140px" class="text-right">{{ text.remaining }}</th>
           <th nzWidth="140px">{{ text.owner }}</th>
-          <th nzWidth="110px"></th>
+          <th nzWidth="200px"></th>
         </tr>
       </thead>
       <tbody>
@@ -63,9 +63,14 @@ import { RECEIVABLES_TEXT } from '../payments.text';
             <td>{{ i.owner?.fullName ?? text.noOwner }}</td>
             <td>
               @if (canCreate()) {
-                <button nz-button nzSize="small" type="button" (click)="collect.emit(i)">
-                  {{ text.collect }}
-                </button>
+                <div class="row-actions">
+                  <button nz-button nzSize="small" type="button" (click)="collect.emit(i)">
+                    {{ text.collect }}
+                  </button>
+                  <button nz-button nzSize="small" type="button" (click)="request.emit(i)">
+                    {{ text.request }}
+                  </button>
+                </div>
               }
             </td>
           </tr>
@@ -82,6 +87,10 @@ import { RECEIVABLES_TEXT } from '../payments.text';
       cursor: pointer;
       font: inherit;
     }
+    .row-actions {
+      display: flex;
+      gap: 6px;
+    }
     .pending {
       color: #faad14;
       cursor: help;
@@ -94,6 +103,8 @@ export class DueInstallmentTableComponent {
   readonly loading = input(false);
   readonly canCreate = input(false);
   readonly collect = output<DueInstallment>();
+  /** 07-D3: đề nghị thanh toán cho đợt. */
+  readonly request = output<DueInstallment>();
   readonly openContract = output<string>();
 
   protected readonly text = RECEIVABLES_TEXT;

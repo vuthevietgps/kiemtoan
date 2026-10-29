@@ -52,6 +52,17 @@ export const TEMPLATE_FIELDS: TemplateField[] = [
   { key: 'today.day', label: 'Ngày lập — ngày' },
   { key: 'today.month', label: 'Ngày lập — tháng' },
   { key: 'today.year', label: 'Ngày lập — năm' },
+  // 07-D3 (J9): đề nghị thanh toán — các đợt được chọn (mẫu khác: mọi đợt còn nợ).
+  { key: 'payment.installments', label: 'Đợt đề nghị thanh toán' },
+  { key: 'payment.amount', label: 'Số tiền đề nghị thanh toán' },
+  { key: 'payment.amountInWords', label: 'Số tiền đề nghị bằng chữ' },
+  { key: 'payment.dueDate', label: 'Hạn thanh toán sớm nhất' },
+  { key: 'payment.transferContent', label: 'Nội dung chuyển khoản' },
+];
+
+/** Ảnh chèn bằng lệnh IMAGE: chỉ mã VietQR của đề nghị thanh toán (07-D3). */
+export const TEMPLATE_IMAGES: TemplateField[] = [
+  { key: 'payment.qr', label: 'Ảnh mã VietQR — dùng {{IMAGE payment.qr}}' },
 ];
 
 export const TEMPLATE_LISTS: TemplateList[] = [
@@ -88,13 +99,14 @@ export interface TemplateCommand {
 }
 
 const SCALAR_KEYS = new Set(TEMPLATE_FIELDS.map((f) => f.key));
+const IMAGE_KEYS = new Set(TEMPLATE_IMAGES.map((f) => f.key));
 const IDENTIFIER = /^[A-Za-z][A-Za-z0-9_]*$/;
 const LOOP = /^([A-Za-z][A-Za-z0-9_]*)\s+IN\s+([A-Za-z][A-Za-z0-9_]*)$/;
 const LIST_VAR = /^\$([A-Za-z][A-Za-z0-9_]*)\.([A-Za-z][A-Za-z0-9_]*)$/;
 
 /**
  * Kiểm tra lệnh trong mẫu chỉ là trường công bố, vòng lặp FOR … IN services|installments và
- * END-FOR tương ứng. Trả về danh sách trường dùng; sai thì báo 400 liệt kê lệnh không hợp lệ.
+ * END-FOR tương ứng, IMAGE payment.qr. Trả về danh sách trường dùng; sai thì báo 400 liệt kê lệnh không hợp lệ.
  */
 export function validateTemplateCommands(
   commands: TemplateCommand[],
@@ -106,6 +118,8 @@ export function validateTemplateCommands(
     const code = command.code.trim();
     const type = command.type.toUpperCase();
     if (type === 'INS' && SCALAR_KEYS.has(code)) {
+      used.add(code);
+    } else if (type === 'IMAGE' && IMAGE_KEYS.has(code)) {
       used.add(code);
     } else if (type === 'INS' && LIST_VAR.test(code)) {
       const [, variable, field] = LIST_VAR.exec(code)!;

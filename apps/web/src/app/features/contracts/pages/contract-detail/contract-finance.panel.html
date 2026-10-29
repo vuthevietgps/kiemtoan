@@ -60,6 +60,11 @@
             <nz-icon nzType="dollar" /> {{ paymentText.newPayment }}
           </button>
         }
+        @if (canCollect() && requestable().length) {
+          <button nz-button *appCan="'payments:create'" (click)="requestVisible.set(true)">
+            <nz-icon nzType="file-word" /> {{ requestText.open }}
+          </button>
+        }
         <span class="text-muted">
           Đã thu (đã duyệt): <b>{{ c.paidAmount | vnd }}</b>
           @if (+c.pendingAmount > 0) {
@@ -106,7 +111,7 @@
     </nz-tab>
 
     <nz-tab [nzTitle]="'Hoá đơn (' + c.invoices.length + ')'">
-      @if (uninvoiced() > 0 && c.status !== 'DRAFT' && c.status !== 'CANCELLED') {
+      @if (uninvoiced() > 0 && billable()) {
         <button
           nz-button
           nzType="primary"
@@ -114,19 +119,20 @@
           style="margin-bottom: 12px"
           (click)="invoiceVisible.set(true)"
         >
-          <nz-icon nzType="file-add" /> Đề nghị xuất hoá đơn
+          <nz-icon nzType="file-add" /> {{ invoiceText.request }}
         </button>
       }
       <nz-table
         [nzData]="c.invoices"
         [nzShowPagination]="false"
-        [nzScroll]="{ x: '760px' }"
+        [nzScroll]="{ x: '860px' }"
         nzSize="small"
       >
         <thead>
           <tr>
-            <th nzWidth="150px">Ký hiệu / Số</th>
-            <th nzWidth="120px">Ngày phát hành</th>
+            <th nzWidth="170px">Mẫu số / Ký hiệu / Số</th>
+            <th nzWidth="110px">Ngày lập</th>
+            <th nzWidth="100px">Loại</th>
             <th nzWidth="140px" class="text-right">Trước VAT</th>
             <th nzWidth="140px" class="text-right">Tổng tiền</th>
             <th nzWidth="130px">Trạng thái</th>
@@ -135,9 +141,12 @@
         </thead>
         <tbody>
           @for (inv of c.invoices; track inv.id) {
-            <tr>
-              <td>{{ inv.symbol ? inv.symbol + ' / ' + inv.number : '—' }}</td>
+            <tr class="clickable" (click)="openInvoice(inv.id)">
+              <td>
+                <a>{{ inv.number ? (inv.templateCode ?? '') + inv.symbol + ' · ' + inv.number : invoiceText.notIssued }}</a>
+              </td>
               <td>{{ (inv.issueDate | date: 'dd/MM/yyyy') ?? '—' }}</td>
+              <td>{{ invoiceKinds[inv.kind] }}</td>
               <td class="text-right">{{ inv.subtotal | vnd }}</td>
               <td class="text-right">{{ inv.total | vnd }}</td>
               <td>
@@ -177,7 +186,7 @@
 
 <nz-modal
   [nzVisible]="invoiceVisible()"
-  nzTitle="Đề nghị xuất hoá đơn"
+  [nzTitle]="invoiceText.request"
   [nzFooter]="null"
   (nzOnCancel)="invoiceVisible.set(false)"
 >
@@ -186,9 +195,22 @@
       <app-invoice-request-form
         [contractId]="c.id"
         [remaining]="uninvoiced()"
-        (saved)="onInvoiceSaved()"
+        [installments]="invoiceable()"
+        [customer]="c.customer"
+        [busy]="invoices.busy()"
+        (saved)="onInvoiceSaved($event)"
         (cancelled)="invoiceVisible.set(false)"
       />
     }
   </ng-container>
 </nz-modal>
+
+<app-payment-request-dialog
+  [visible]="requestVisible()"
+  [contractId]="c.id"
+  [contractCode]="c.code"
+  [installments]="requestable()"
+  [preselected]="requestPreselected()"
+  (closed)="requestVisible.set(false)"
+  (created)="requestVisible.set(false); changed.emit()"
+/>

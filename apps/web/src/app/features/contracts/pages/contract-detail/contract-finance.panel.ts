@@ -20,14 +20,19 @@ import { errorMessage } from '../../../../core/api/api';
 import { CanDirective } from '../../../../shared/directives/can.directive';
 import { VndPipe } from '../../../../shared/pipes/vnd.pipe';
 import { InvoiceRequestFormComponent } from '../../../invoices/components/invoice-request-form.component';
+import { InvoiceRequestInput } from '../../../invoices/data-access/invoices.api';
+import { InvoicesStore } from '../../../invoices/data-access/invoices.store';
+import { INVOICE_KIND_LABELS, INVOICES_TEXT } from '../../../invoices/invoices.text';
 import {
   PaymentFormComponent,
   PaymentFormValue,
 } from '../../../payments/components/payment-form.component';
 import { PaymentsStore } from '../../../payments/data-access/payments.store';
+import { PaymentRequestDialog } from '../../../payments/pages/payment-request.dialog';
 import {
   PAYMENT_STATE_COLORS,
   PAYMENT_STATE_LABELS,
+  PAYMENT_REQUEST_TEXT,
   PAYMENTS_TEXT,
 } from '../../../payments/payments.text';
 import {
@@ -58,6 +63,7 @@ const BILLABLE: ContractStatus[] = ['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', '
     VndPipe,
     PaymentFormComponent,
     InvoiceRequestFormComponent,
+    PaymentRequestDialog,
   ],
   templateUrl: './contract-finance.panel.html',
   styles: `
@@ -82,7 +88,7 @@ const BILLABLE: ContractStatus[] = ['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', '
       color: #cf1322;
     }
   `,
-  providers: [PaymentsStore],
+  providers: [PaymentsStore, InvoicesStore],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ContractFinancePanel {
@@ -98,12 +104,47 @@ export class ContractFinancePanel {
   protected readonly paymentText = PAYMENTS_TEXT;
   protected readonly invoiceLabels = INVOICE_STATUS_LABELS;
   protected readonly invoiceColors = INVOICE_STATUS_COLORS;
+  protected readonly invoiceKinds = INVOICE_KIND_LABELS;
+  protected readonly invoiceText = INVOICES_TEXT;
+  protected readonly invoices = inject(InvoicesStore);
   protected readonly paymentVisible = signal(false);
   protected readonly invoiceVisible = signal(false);
   protected readonly canCollect = computed(() => {
     const c = this.contract();
     // J7: chỉ thu cho HĐ đã duyệt (chưa thực hiện / đang thực hiện / hoàn thành / thanh lý).
     return BILLABLE.includes(c.status) && Number(c.remainingAmount) > 0;
+  });
+  /** 07-D3: đợt còn nợ đưa vào đề nghị thanh toán; mặc định chọn đợt quá hạn (không có thì đợt đầu). */
+  protected readonly requestVisible = signal(false);
+  protected readonly requestText = PAYMENT_REQUEST_TEXT;
+  protected readonly requestable = computed(() =>
+    this.contract()
+      .installments.map((i) => ({
+        id: i.id,
+        name: i.name,
+        dueDate: i.dueDate,
+        remaining: String(Number(i.amount) - Number(i.paidAmount)),
+        overdue: !!i.overdueDays,
+      }))
+      .filter((i) => Number(i.remaining) > 0),
+  );
+  protected readonly requestPreselected = computed(() => {
+    const open = this.requestable();
+    const overdue = open.filter((i) => i.overdue).map((i) => i.id);
+    return overdue.length ? overdue : open.slice(0, 1).map((i) => i.id);
+  });
+  protected readonly billable = computed(() => BILLABLE.includes(this.contract().status));
+  /** 08 K2: đợt chưa có đề nghị / hoá đơn hiệu lực. */
+  protected readonly invoiceable = computed(() => {
+    const c = this.contract();
+    const taken = new Set(
+      c.invoices
+        .filter((i) => ['REQUESTED', 'ISSUED', 'ADJUSTED'].includes(i.status))
+        .flatMap((i) => i.installments.map((x) => x.installmentId)),
+    );
+    return c.installments
+      .filter((i) => !taken.has(i.id))
+      .map((i) => ({ id: i.id, name: i.name, dueDate: i.dueDate, amount: i.amount }));
   });
   protected readonly uninvoiced = computed(() => {
     const c = this.contract();
@@ -127,8 +168,19 @@ export class ContractFinancePanel {
     }
   }
 
-  protected onInvoiceSaved(): void {
-    this.invoiceVisible.set(false);
-    this.changed.emit();
+  protected openInvoice(id: string): void {
+    void this.router.navigate(['/invoices'], { queryParams: { id } });
+  }
+
+  /** 08 K2: gửi đề nghị xuất (theo đợt hoặc giá trị). */
+  protected async onInvoiceSaved(input: InvoiceRequestInput): Promise<void> {
+    try {
+      await this.invoices.requestInvoice(input);
+      this.invoiceVisible.set(false);
+      this.changed.emit();
+      this.message.success(this.invoiceText.sent);
+    } catch (err) {
+      this.message.error(errorMessage(err));
+    }
   }
 }

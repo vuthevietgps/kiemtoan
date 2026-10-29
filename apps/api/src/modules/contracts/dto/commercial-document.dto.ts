@@ -2,6 +2,9 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { DocumentTemplateType } from '@prisma/client';
 import { Transform } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsEnum,
   IsOptional,
@@ -99,5 +102,27 @@ export class UploadSignedDto {
   @Transform(emptyToUndefined)
   @IsString()
   @MaxLength(2000)
+  note?: string;
+}
+
+/** 07-D3 (J9): đề nghị thanh toán cho một hoặc nhiều đợt còn nợ của một HĐ. */
+export class PaymentRequestDto {
+  @IsUUID('all', { message: 'Vui lòng chọn hợp đồng' })
+  contractId: string;
+
+  @IsArray()
+  @ArrayMinSize(1, { message: 'Chọn ít nhất một đợt thanh toán' })
+  @ArrayMaxSize(50)
+  @IsUUID('all', { each: true, message: 'Đợt thanh toán không hợp lệ' })
+  installmentIds: string[];
+
+  /** Bỏ trống: mẫu "Đề nghị thanh toán" đang dùng mới nhất (hoặc mẫu ví dụ). */
+  @IsOptional()
+  @IsUUID('all')
+  templateId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
   note?: string;
 }

@@ -19,6 +19,7 @@ import {
   INSTALLMENT_BALANCE_SELECT,
   RECEIVABLE_EXCLUDED,
 } from '../payments/payment-allocation';
+import { heldSubtotal } from '../invoices/invoice.rules';
 import { todayVn } from '../reports/utils/period.util';
 import { ContractQueryDto } from './dto/contract.dto';
 
@@ -80,7 +81,11 @@ const DETAIL_INCLUDE = {
     orderBy: { paidDate: 'desc' },
   },
   invoices: {
-    include: { requestedBy: USER_BRIEF },
+    // 08: đợt đã gắn hoá đơn (form đề nghị theo đợt bỏ các đợt đã có hoá đơn hiệu lực).
+    include: {
+      requestedBy: USER_BRIEF,
+      installments: { select: { installmentId: true } },
+    },
     orderBy: { createdAt: 'desc' },
   },
 } satisfies Prisma.ContractInclude;
@@ -176,11 +181,8 @@ export class ContractsQueryService {
       );
     const paidAmount = amountOf(PaymentStatus.APPROVED);
     const pendingAmount = amountOf(PaymentStatus.PENDING);
-    const invoicedSubtotal = sumDecimal(
-      contract.invoices
-        .filter((i) => i.status !== 'CANCELLED')
-        .map((i) => i.subtotal),
-    );
+    // 08 K2: phần giá trị đã đề nghị / đã xuất còn hiệu lực (bỏ huỷ đề nghị, bị thay thế).
+    const invoicedSubtotal = heldSubtotal(contract.invoices);
     const approved = contract.payments.filter(
       (p) => p.status === PaymentStatus.APPROVED,
     );

@@ -1,99 +1,129 @@
-<app-page-header title="Quản lý hoá đơn" subtitle="Đề nghị xuất hoá đơn được tạo từ trang chi tiết hợp đồng" />
+<app-page-header [title]="text.title" [subtitle]="text.subtitle" />
 
 <div class="panel">
-  <div class="filters">
-    <input
-      nz-input
-      placeholder="Số hoá đơn, mã HĐ, khách hàng"
-      [(ngModel)]="search"
-      (keyup.enter)="applyFilter()"
-    />
-    <nz-select nzPlaceHolder="Tất cả trạng thái" nzAllowClear [(ngModel)]="status" (ngModelChange)="applyFilter()">
-      @for (o of statusOptions; track o.value) {
-        <nz-option [nzValue]="o.value" [nzLabel]="o.label" />
-      }
-    </nz-select>
-    <button nz-button (click)="applyFilter()"><nz-icon nzType="search" /> Tìm</button>
-  </div>
+  <nz-tabs [nzSelectedIndex]="tab()" (nzSelectedIndexChange)="selectTab($event)">
+    <nz-tab [nzTitle]="queueTitle" />
+    <nz-tab [nzTitle]="text.tabLedger" />
+    <nz-tab [nzTitle]="reconciliationText.tab" />
+  </nz-tabs>
+  <ng-template #queueTitle>
+    {{ text.tabQueue }}
+    <nz-badge nzStandalone [nzCount]="store.queueCount()" [nzOverflowCount]="99" class="badge" />
+  </ng-template>
 
-  <nz-table
-    #table
-    [nzData]="items()"
-    [nzLoading]="loading()"
-    [nzFrontPagination]="false"
-    [nzTotal]="total()"
-    [nzPageIndex]="page()"
-    [nzPageSize]="pageSize()"
-    [nzScroll]="{ x: '1100px' }"
-    nzSize="middle"
-    (nzQueryParams)="onQueryParams($event)"
-  >
-    <thead>
-      <tr>
-        <th nzWidth="150px">Ký hiệu / Số</th>
-        <th nzWidth="110px">Ngày PH</th>
-        <th nzWidth="130px">Hợp đồng</th>
-        <th>Khách hàng</th>
-        <th nzWidth="140px" class="text-right">Trước VAT</th>
-        <th nzWidth="140px" class="text-right">Tổng tiền</th>
-        <th nzWidth="130px">Trạng thái</th>
-        <th nzWidth="150px">Người đề nghị</th>
-        <th nzWidth="160px"></th>
-      </tr>
-    </thead>
-    <tbody>
-      @for (inv of table.data; track inv.id) {
-        <tr>
-          <td>{{ inv.symbol ? inv.symbol + ' / ' + inv.number : '—' }}</td>
-          <td>{{ (inv.issueDate | date: 'dd/MM/yyyy') ?? '—' }}</td>
-          <td><a [routerLink]="['/contracts', inv.contract.id]">{{ inv.contract.code }}</a></td>
-          <td>
-            {{ inv.contract.customer.name }}
-            @if (inv.note) {
-              <div class="text-muted">{{ inv.note }}</div>
-            }
-          </td>
-          <td class="text-right">{{ inv.subtotal | vnd }}</td>
-          <td class="text-right">{{ inv.total | vnd }}</td>
-          <td>
-            <nz-tag [nzColor]="statusColors[inv.status]">{{ statusLabels[inv.status] }}</nz-tag>
-          </td>
-          <td>{{ inv.requestedBy.fullName }}</td>
-          <td>
-            <ng-container *appCan="'invoices:update'">
-              @if (inv.status === 'REQUESTED') {
-                <button nz-button nzType="link" nzSize="small" (click)="issuing.set(inv)">Phát hành</button>
-              }
-              @if (inv.status !== 'CANCELLED') {
-                <button
-                  nz-button
-                  nzType="link"
-                  nzSize="small"
-                  nzDanger
-                  nz-popconfirm
-                  nzPopconfirmTitle="Huỷ hoá đơn này?"
-                  (nzOnConfirm)="cancel(inv)"
-                >
-                  Huỷ
-                </button>
-              }
-            </ng-container>
-          </td>
-        </tr>
+  @if (tab() === 2) {
+    <app-reconciliation-panel />
+  } @else {
+    <div class="filters">
+      <input
+        nz-input
+        class="search"
+        [placeholder]="text.search"
+        [ngModel]="search()"
+        (ngModelChange)="search.set($event)"
+        (keyup.enter)="applyFilter()"
+      />
+      @if (tab() !== 0) {
+        <nz-select
+          nzAllowClear
+          [nzPlaceHolder]="text.allStatuses"
+          [ngModel]="ledgerStatus()"
+          (ngModelChange)="filterStatus($event ?? null)"
+        >
+          @for (s of statuses; track s.value) {
+            <nz-option [nzValue]="s.value" [nzLabel]="s.label" />
+          }
+        </nz-select>
+        <nz-select
+          nzAllowClear
+          [nzPlaceHolder]="text.allKinds"
+          [ngModel]="store.query().kind"
+          (ngModelChange)="filterKind($event ?? null)"
+        >
+          @for (k of kinds; track k.value) {
+            <nz-option [nzValue]="k.value" [nzLabel]="k.label" />
+          }
+        </nz-select>
+        <nz-range-picker
+          nzFormat="dd/MM/yyyy"
+          [ngModel]="range()"
+          (ngModelChange)="range.set($event ?? []); applyFilter()"
+        />
       }
-    </tbody>
-  </nz-table>
+      <button nz-button (click)="applyFilter()">{{ text.find }}</button>
+      <button nz-button nzType="link" (click)="reset()">{{ text.reset }}</button>
+      @if (tab() !== 0) {
+        <button nz-button *appCan="'invoices:export'" (click)="exportLedger()">
+          <nz-icon nzType="download" /> {{ reconciliationText.export }}
+        </button>
+      }
+    </div>
+
+    @if (store.error()) {
+      <nz-alert class="notice" nzType="error" nzShowIcon [nzMessage]="store.error()" />
+    }
+
+    <app-invoice-table
+      [items]="store.items()"
+      [loading]="store.loading()"
+      [total]="store.total()"
+      [page]="store.query().page"
+      [pageSize]="store.query().pageSize"
+      (opened)="open($event)"
+      (pageChange)="store.setQuery($event)"
+    />
+  }
 </div>
 
+<app-invoice-drawer
+  [detail]="store.detail()"
+  [busy]="store.busy()"
+  [error]="store.actionError()"
+  [canCreate]="canCreate()"
+  [canUpdate]="canUpdate()"
+  (closed)="close()"
+  (record)="recording.set($event)"
+  (editBuyer)="editingBuyer.set(true)"
+  (cancelRequest)="cancel($event)"
+  (openInvoice)="open($event)"
+  (openContract)="openContract($event)"
+  (download)="download($event)"
+/>
+
 <nz-modal
-  [nzVisible]="!!issuing()"
-  [nzTitle]="'Phát hành hoá đơn — ' + (issuing()?.contract?.code ?? '')"
+  [nzVisible]="!!recording()"
+  [nzTitle]="recording() ? text.recordTitle[recording()!] : ''"
   [nzFooter]="null"
-  (nzOnCancel)="issuing.set(null)"
+  [nzWidth]="600"
+  (nzOnCancel)="recording.set(null)"
 >
   <ng-container *nzModalContent>
-    @if (issuing(); as inv) {
-      <app-invoice-issue-form [invoiceId]="inv.id" (saved)="onIssued()" (cancelled)="issuing.set(null)" />
+    @if (recording(); as mode) {
+      <app-invoice-record-form
+        [mode]="mode"
+        [invoice]="store.detail()"
+        [busy]="store.busy()"
+        (saved)="record($event)"
+        (cancelled)="recording.set(null)"
+      />
+    }
+  </ng-container>
+</nz-modal>
+
+<nz-modal
+  [nzVisible]="editingBuyer()"
+  [nzTitle]="text.editBuyer"
+  [nzFooter]="null"
+  (nzOnCancel)="editingBuyer.set(false)"
+>
+  <ng-container *nzModalContent>
+    @if (editingBuyer()) {
+      <app-invoice-buyer-form
+        [buyer]="store.detail()"
+        [busy]="store.busy()"
+        (saved)="saveBuyer($event)"
+        (cancelled)="editingBuyer.set(false)"
+      />
     }
   </ng-container>
 </nz-modal>

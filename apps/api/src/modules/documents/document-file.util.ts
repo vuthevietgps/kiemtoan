@@ -14,8 +14,18 @@ const MIME: Record<string, string> = {
   '.pptx':
     'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 };
-export function validateDocumentFile(file: UploadedFileInfo): UploadedFileInfo {
+const XML_MIME = 'application/xml';
+
+/**
+ * Kiểm tra file tải lên kho hồ sơ. `allowXml`: chỉ nhóm "Hoá đơn" (08 K5) nhận thêm file XML hoá đơn
+ * điện tử — chỉ lưu và tải về, không đọc nội dung; chặn DOCTYPE/ENTITY.
+ */
+export function validateDocumentFile(
+  file: UploadedFileInfo,
+  options: { allowXml?: boolean } = {},
+): UploadedFileInfo {
   const extension = extname(file.originalname).toLowerCase();
+  if (options.allowXml && extension === '.xml') return validateXml(file);
   if (
     !MIME[extension] ||
     [...file.originalname].some(
@@ -71,4 +81,19 @@ function officeFile(buffer: Buffer, extension: string) {
   } catch {
     return false;
   }
+}
+
+function validateXml(file: UploadedFileInfo): UploadedFileInfo {
+  // trimStart() đã bỏ cả ký tự BOM (U+FEFF) ở đầu file.
+  const text = file.buffer.toString('utf8').trimStart();
+  if (
+    !file.buffer.length ||
+    file.buffer.length > 5 * 1024 * 1024 ||
+    !text.startsWith('<') ||
+    /<!(DOCTYPE|ENTITY)/i.test(text)
+  )
+    throw new BadRequestException(
+      'File XML hoá đơn không hợp lệ (tối đa 5 MB, không chứa DOCTYPE/ENTITY)',
+    );
+  return { ...file, mimetype: XML_MIME, size: file.buffer.length };
 }

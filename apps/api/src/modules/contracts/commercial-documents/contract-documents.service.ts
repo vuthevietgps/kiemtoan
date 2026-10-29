@@ -20,6 +20,7 @@ import { DocumentsService } from '../../documents/documents.service';
 import { scopedContract } from '../contracts-query.service';
 import {
   GenerateDocumentDto,
+  PaymentRequestDto,
   UploadSignedDto,
 } from '../dto/commercial-document.dto';
 import {
@@ -28,11 +29,18 @@ import {
   TEMPLATE_TYPE_LABELS,
 } from './commercial-documents.constants';
 import { DocumentTemplatesService } from './document-templates.service';
-import { renderTemplate } from './docx-engine';
+import { readTemplateFields, renderTemplate } from './docx-engine';
+import {
+  bankConfigured,
+  paymentTemplateData,
+  previewPaymentRequest,
+  qrDataUrl,
+} from './payment-request.builder';
 import {
   buildTemplateData,
   companyProfile,
   TEMPLATE_CONTRACT_SELECT,
+  type TemplateContract,
 } from './template-data.builder';
 
 const DOCX_MIME =
@@ -110,10 +118,8 @@ export class ContractDocumentsService {
       : null;
     if (existing && existing.type !== template.type)
       throw new BadRequestException('Mẫu khác loại với hồ sơ đã chọn');
-    const output = await renderTemplate(
-      buffer,
-      buildTemplateData(contract, companyProfile(this.config), new Date()),
-    );
+    // Mẫu khác dùng nhóm payment: mọi đợt còn nợ của HĐ (07-D3).
+    const output = await this.render(buffer, contract, null);
     const file: UploadedFileInfo = {
       originalname: asUploadName(
         `${TEMPLATE_TYPE_LABELS[template.type]} ${contract.code}.docx`,
@@ -136,6 +142,56 @@ export class ContractDocumentsService {
       templateVersion: template.version,
       documentId: result.document.id,
       version: result.document.version,
+    });
+    return result;
+  }
+
+  /** 07-D3 (J9): số liệu đề nghị thanh toán và ảnh VietQR để xem trước, chưa tạo file. */
+  async previewPaymentRequest(user: AuthUser, dto: PaymentRequestDto) {
+    const contract = await this.payableContract(user, dto.contractId);
+    const preview = previewPaymentRequest(
+      contract,
+      companyProfile(this.config),
+      dto.installmentIds,
+    );
+    return {
+      ...preview,
+      contract: { id: contract.id, code: contract.code },
+      qrImage: preview.qrPayload ? await qrDataUrl(preview.qrPayload) : null,
+    };
+  }
+
+  /**
+   * 07-D3 (J9): tạo DOCX đề nghị thanh toán cho các đợt chọn từ mẫu "Đề nghị thanh toán" (04-C) kèm
+   * VietQR, lưu kho hồ sơ KH gắn HĐ. Quyền theo `payments:create` (kiểm ở controller).
+   */
+  async generatePaymentRequest(user: AuthUser, dto: PaymentRequestDto) {
+    const contract = await this.payableContract(user, dto.contractId);
+    const { template, buffer } = await this.templates.loadOrSample(
+      DocumentTemplateType.PAYMENT_REQUEST,
+      dto.templateId,
+    );
+    const output = await this.render(buffer, contract, dto.installmentIds);
+    const label = TEMPLATE_TYPE_LABELS.PAYMENT_REQUEST;
+    const file: UploadedFileInfo = {
+      originalname: asUploadName(`${label} ${contract.code}.docx`),
+      mimetype: DOCX_MIME,
+      size: output.length,
+      buffer: output,
+    };
+    const result = await this.store(user, contract, file, {
+      type: DocumentTemplateType.PAYMENT_REQUEST,
+      source: 'GENERATED',
+      existing: null,
+      link: template
+        ? { templateId: template.id, templateVersion: template.version }
+        : {},
+      note: dto.note,
+    });
+    await this.audit(user, contract.id, 'GENERATE_PAYMENT_REQUEST', {
+      installmentIds: dto.installmentIds,
+      templateId: template?.id ?? null,
+      documentId: result.document.id,
     });
     return result;
   }
@@ -223,6 +279,46 @@ export class ContractDocumentsService {
       await this.documents.remove(user, document.id);
       throw error;
     }
+  }
+
+  /** Trộn mẫu với nhóm payment; mẫu có ảnh VietQR mà chưa cấu hình ngân hàng nhận → 400. */
+  private async render(
+    buffer: Buffer,
+    contract: TemplateContract,
+    installmentIds: string[] | null,
+  ) {
+    const company = companyProfile(this.config);
+    const usesQr = (await readTemplateFields(buffer)).includes('payment.qr');
+    if (usesQr && !bankConfigured(company))
+      throw new BadRequestException(
+        'Chưa cấu hình tài khoản nhận tiền (COMPANY_BANK_BIN, COMPANY_BANK_ACCOUNT) để tạo mã VietQR',
+      );
+    // Mẫu không có ảnh QR: không tạo mã (cấu hình ngân hàng sai không chặn hồ sơ khác).
+    const payment = await paymentTemplateData(
+      previewPaymentRequest(
+        contract,
+        usesQr ? company : { ...company, bankBin: '' },
+        installmentIds,
+      ),
+    );
+    return renderTemplate(
+      buffer,
+      buildTemplateData(contract, company, new Date(), payment),
+    );
+  }
+
+  /** HĐ trong phạm vi, đã duyệt (J7) — được lập đề nghị thanh toán. */
+  private async payableContract(user: AuthUser, id: string) {
+    const contract = await this.prisma.contract.findFirst({
+      where: scopedContract(user, { id }),
+      select: TEMPLATE_CONTRACT_SELECT,
+    });
+    if (!contract) throw new NotFoundException('Không tìm thấy hợp đồng');
+    if (!GENERATABLE_STATUSES.PAYMENT_REQUEST.includes(contract.status))
+      throw new BadRequestException(
+        'Chỉ lập đề nghị thanh toán cho hợp đồng đã duyệt',
+      );
+    return contract;
   }
 
   private requireDocumentUpload(user: AuthUser) {

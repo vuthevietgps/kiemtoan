@@ -79,8 +79,25 @@ export const RECEIVABLES_TEXT = {
   daysUnit: 'ngày tới',
   dueSum: 'Tổng còn thiếu',
   collect: 'Lập phiếu',
+  request: 'Đề nghị TT',
   pendingHint: 'Có phiếu chờ duyệt',
   noOwner: '—',
+} as const;
+
+/** Chuỗi giao diện Đề nghị thanh toán (07-D3, J9). */
+export const PAYMENT_REQUEST_TEXT = {
+  open: 'Đề nghị thanh toán',
+  title: 'Đề nghị thanh toán',
+  pick: 'Chọn đợt đề nghị',
+  amount: 'Số tiền đề nghị',
+  transfer: 'Nội dung chuyển khoản',
+  account: 'Tài khoản nhận',
+  qrAlt: 'Mã VietQR chuyển khoản',
+  noBank: 'Chưa cấu hình tài khoản nhận tiền nên chưa tạo được mã VietQR',
+  hint: 'File Word được lưu vào hồ sơ của hợp đồng (tab Hồ sơ) và tải về máy.',
+  create: 'Tạo file Word',
+  close: 'Đóng',
+  done: 'Đã tạo đề nghị thanh toán',
 } as const;
 
 /** Chuỗi giao diện Thu tiền (07-C). */

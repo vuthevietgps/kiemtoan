@@ -22,6 +22,8 @@ import {
   CurrentUser,
   RequirePermission,
 } from '../../core/auth/decorators/auth.decorators';
+import { ContractDocumentsService } from '../contracts/commercial-documents/contract-documents.service';
+import { PaymentRequestDto } from '../contracts/dto/commercial-document.dto';
 import { MAX_UPLOAD_BYTES } from '../documents/documents.service';
 import {
   AttachDocumentDto,
@@ -62,7 +64,29 @@ export class PaymentsController {
     private readonly payments: PaymentsService,
     private readonly query: PaymentsQueryService,
     private readonly receivableQuery: ReceivablesQueryService,
+    private readonly contractDocuments: ContractDocumentsService,
   ) {}
+
+  /** 07-D3 (J9): xem trước đề nghị thanh toán (số tiền, nội dung, ảnh VietQR). */
+  @Post('payment-requests/preview')
+  @HttpCode(200)
+  @RequirePermission('payments', 'create')
+  previewPaymentRequest(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: PaymentRequestDto,
+  ) {
+    return this.contractDocuments.previewPaymentRequest(user, dto);
+  }
+
+  /** 07-D3 (J9): tạo DOCX đề nghị thanh toán, lưu kho hồ sơ gắn HĐ. */
+  @Post('payment-requests')
+  @RequirePermission('payments', 'create')
+  createPaymentRequest(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: PaymentRequestDto,
+  ) {
+    return this.contractDocuments.generatePaymentRequest(user, dto);
+  }
 
   @Get()
   @RequirePermission('payments', 'view')

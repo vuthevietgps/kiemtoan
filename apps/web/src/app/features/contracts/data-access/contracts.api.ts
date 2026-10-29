@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_URL, Paginated, toParams } from '../../../core/api/api';
+import type { InvoiceKind } from '../../invoices/invoices.text';
 import type { PaymentState } from '../../payments/payments.text';
 import {
   BillingCycle,
@@ -102,6 +103,10 @@ export interface ContractPayment {
 
 export interface ContractInvoice {
   id: string;
+  /** 08: loại hoá đơn, mẫu số, đợt đã gắn. */
+  kind: InvoiceKind;
+  templateCode: string | null;
+  installments: { installmentId: string }[];
   number: string | null;
   symbol: string | null;
   issueDate: string | null;

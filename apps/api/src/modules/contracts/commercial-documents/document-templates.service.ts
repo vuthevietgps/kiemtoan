@@ -230,6 +230,23 @@ export class DocumentTemplatesService {
     return { template, buffer };
   }
 
+  /**
+   * 07-D3: mẫu chọn (`id`), hoặc mẫu đang dùng mới nhất của loại; chưa có mẫu nào thì mẫu ví dụ của
+   * hệ thống (`template` null — hồ sơ không gắn mẫu).
+   */
+  async loadOrSample(type: DocumentTemplateType, id?: string) {
+    const chosen = id
+      ? await this.findActive(id)
+      : await this.prisma.documentTemplate.findFirst({
+          where: { type, isActive: true, deletedAt: null },
+          orderBy: { updatedAt: 'desc' },
+        });
+    if (chosen && chosen.type !== type)
+      throw new BadRequestException('Mẫu đã chọn không đúng loại hồ sơ');
+    if (!chosen) return { template: null, buffer: await sampleTemplate(type) };
+    return this.loadForGeneration(chosen.id);
+  }
+
   private async findActive(
     id: string,
     tx: Prisma.TransactionClient = this.prisma,

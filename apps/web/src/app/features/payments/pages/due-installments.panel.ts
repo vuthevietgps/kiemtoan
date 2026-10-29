@@ -17,10 +17,11 @@ import { DueFilter, DueInstallment } from '../data-access/payments.api';
 import { PaymentsStore } from '../data-access/payments.store';
 import { ReceivablesStore } from '../data-access/receivables.store';
 import { PAYMENTS_TEXT, RECEIVABLES_TEXT } from '../payments.text';
+import { PaymentRequestDialog } from './payment-request.dialog';
 
 /**
  * Sắp đến hạn / Quá hạn (07-D1): danh sách đợt còn nợ để Kế toán thu tiền theo dõi và lập phiếu ngay
- * từ đợt (form chọn sẵn đợt và số còn thiếu). Đề nghị thanh toán, nhắc nợ: 07-D3/07-D4.
+ * từ đợt (form chọn sẵn đợt và số còn thiếu), đề nghị thanh toán kèm VietQR (07-D3). Nhắc nợ: 07-D4.
  */
 @Component({
   selector: 'app-due-installments-panel',
@@ -33,6 +34,7 @@ import { PAYMENTS_TEXT, RECEIVABLES_TEXT } from '../payments.text';
     VndPipe,
     DueInstallmentTableComponent,
     PaymentFormComponent,
+    PaymentRequestDialog,
   ],
   providers: [ReceivablesStore, PaymentsStore],
   template: `
@@ -63,8 +65,19 @@ import { PAYMENTS_TEXT, RECEIVABLES_TEXT } from '../payments.text';
       [loading]="store.dueLoading()"
       [canCreate]="canCreate()"
       (collect)="startCollect($event)"
+      (request)="requesting.set($event)"
       (openContract)="openContract($event)"
     />
+    @if (requesting(); as r) {
+      <app-payment-request-dialog
+        [visible]="true"
+        [contractId]="r.contract.id"
+        [contractCode]="r.contract.code"
+        [installments]="[r]"
+        (closed)="requesting.set(null)"
+        (created)="requesting.set(null)"
+      />
+    }
     <nz-modal
       [nzVisible]="!!collecting()"
       [nzTitle]="paymentText.newPayment"
@@ -119,6 +132,8 @@ export class DueInstallmentsPanel implements OnInit {
   protected readonly text = RECEIVABLES_TEXT;
   protected readonly paymentText = PAYMENTS_TEXT;
   protected readonly canCreate = computed(() => this.auth.can('payments:create'));
+  /** 07-D3: đợt đang lập đề nghị thanh toán. */
+  protected readonly requesting = signal<DueInstallment | null>(null);
   protected readonly collecting = signal<{
     installment: DueInstallment;
     contract: ContractDetail;

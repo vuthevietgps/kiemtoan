@@ -219,21 +219,19 @@ describe('Contracts, payments, invoices (e2e)', () => {
     });
     invoiceId = req.body.id;
 
-    const issue = {
-      number: '0000123',
-      symbol: '1C25TAA',
-      issueDate: '2025-01-20',
-    };
-    await ctx
-      .api(ctx.users.staff)
-      .patch(`/invoices/${invoiceId}/issue`)
-      .send(issue)
-      .expect(403);
-    const res = await ctx
-      .api(ctx.users.cashier)
-      .patch(`/invoices/${invoiceId}/issue`)
-      .send(issue)
-      .expect(200);
+    // 08 (K5, K9): ghi nhận xuất kèm ký hiệu mẫu số, file PDF và revision (multipart).
+    const issue = (who: 'staff' | 'cashier') =>
+      ctx
+        .api(ctx.users[who])
+        .post(`/invoices/${invoiceId}/issue`)
+        .field('revision', '1')
+        .field('templateCode', '1')
+        .field('number', '0000123')
+        .field('symbol', 'C25TAA')
+        .field('issueDate', '2025-01-20')
+        .attach('pdf', Buffer.from('%PDF-1.4\nhoa don\n%%EOF'), 'hoa-don.pdf');
+    await issue('staff').expect(403);
+    const res = await issue('cashier').expect(200);
     expect(res.body.status).toBe('ISSUED');
 
     await ctx

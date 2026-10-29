@@ -20,6 +20,7 @@ const company: CompanyProfile = {
   representativeTitle: 'Giám đốc',
   bankAccount: '19001234',
   bankName: 'Techcombank',
+  bankBin: '970407',
 };
 const contract: TemplateContract = {
   id: 'c1',
@@ -56,14 +57,18 @@ const contract: TemplateContract = {
   ],
   installments: [
     {
+      id: 'i1',
       name: 'Tạm ứng',
       amount: D('6600000'),
       dueDate: new Date('2026-11-15T00:00:00Z'),
+      allocations: [],
     },
     {
+      id: 'i2',
       name: 'Đợt 2',
       amount: D('6600000'),
       dueDate: new Date('2027-05-15T00:00:00Z'),
+      allocations: [],
     },
   ],
 };

@@ -11,7 +11,8 @@ export type ContractStatus =
 
 /** 07-D2: OVERDUE = chưa thu đủ và có đợt quá hạn. */
 export type PaymentStatus = 'UNPAID' | 'PARTIAL' | 'PAID' | 'OVERDUE';
-export type InvoiceStatus = 'REQUESTED' | 'ISSUED' | 'CANCELLED';
+/** 08 K1: Chờ xuất → Đã xuất → Đã điều chỉnh / Bị thay thế; Huỷ đề nghị. */
+export type InvoiceStatus = 'REQUESTED' | 'ISSUED' | 'ADJUSTED' | 'REPLACED' | 'CANCELLED';
 export type PaymentMethod = 'CASH' | 'BANK_TRANSFER';
 export type BillingCycle = 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'ONE_TIME';
 export type AgingBucket = '0-30' | '31-60' | '61-90' | '>90';
@@ -71,14 +72,18 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
 };
 
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
-  REQUESTED: 'Đề nghị xuất',
-  ISSUED: 'Đã phát hành',
-  CANCELLED: 'Đã huỷ',
+  REQUESTED: 'Chờ xuất',
+  ISSUED: 'Đã xuất',
+  ADJUSTED: 'Đã điều chỉnh',
+  REPLACED: 'Bị thay thế',
+  CANCELLED: 'Huỷ đề nghị',
 };
 
 export const INVOICE_STATUS_COLORS: Record<InvoiceStatus, string> = {
   REQUESTED: 'gold',
   ISSUED: 'green',
+  ADJUSTED: 'cyan',
+  REPLACED: 'default',
   CANCELLED: 'red',
 };
 

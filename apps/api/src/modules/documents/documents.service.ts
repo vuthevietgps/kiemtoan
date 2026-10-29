@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { DocumentCategory, Prisma } from '@prisma/client';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { paginated, toSkipTake } from '../../common/types/paginated';
 import { customerScope } from '../../core/access-control/data-scope';
@@ -89,7 +89,11 @@ export class DocumentsService {
       if (!contract)
         throw new BadRequestException('Hợp đồng không thuộc khách hàng này');
     }
-    const stored = await this.storage.save(validateDocumentFile(file));
+    const stored = await this.storage.save(
+      validateDocumentFile(file, {
+        allowXml: dto.category === DocumentCategory.INVOICE,
+      }),
+    );
     try {
       return await this.prisma.document.create({
         data: {

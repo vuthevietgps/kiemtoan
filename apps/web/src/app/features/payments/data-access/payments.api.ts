@@ -131,6 +131,31 @@ export interface ReceivableQuery {
 
 type Moved = { id: string; status: PaymentState };
 
+/** 07-D3 (J9): đề nghị thanh toán cho các đợt còn nợ của một HĐ. */
+export interface PaymentRequestInput {
+  contractId: string;
+  installmentIds: string[];
+  templateId?: string;
+}
+
+export interface PaymentRequestPreview {
+  contract: { id: string; code: string };
+  installments: { id: string; name: string; dueDate: string; remaining: string }[];
+  amount: string;
+  amountInWords: string;
+  transferContent: string;
+  bank: { bin: string; accountNumber: string; bankName: string; accountName: string };
+  /** Ảnh VietQR (data URL PNG); null khi chưa cấu hình ngân hàng nhận. */
+  qrImage: string | null;
+}
+
+/** Hồ sơ đã tạo, lưu kho hồ sơ gắn HĐ. */
+export interface GeneratedDocument {
+  id: string;
+  type: string;
+  document: { id: string; fileName: string };
+}
+
 @Injectable({ providedIn: 'root' })
 export class PaymentsApi {
   private readonly http = inject(HttpClient);
@@ -181,6 +206,14 @@ export class PaymentsApi {
 
   cancel(id: string, revision: number, reason: string): Observable<Moved> {
     return this.http.post<Moved>(`${this.url}/${id}/cancel`, { revision, reason });
+  }
+
+  previewPaymentRequest(input: PaymentRequestInput): Observable<PaymentRequestPreview> {
+    return this.http.post<PaymentRequestPreview>(`${this.url}/payment-requests/preview`, input);
+  }
+
+  createPaymentRequest(input: PaymentRequestInput): Observable<GeneratedDocument> {
+    return this.http.post<GeneratedDocument>(`${this.url}/payment-requests`, input);
   }
 
   document(documentId: string): Observable<Blob> {

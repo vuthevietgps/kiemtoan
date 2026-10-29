@@ -42,3 +42,7 @@ Công cụ test (không đổi kỳ vọng nào): `test/utils/test-app.ts` — c
 | `test/contracts.e2e-spec.ts` (danh sách HĐ có trạng thái thanh toán) | `paymentStatus` kỳ vọng `PARTIAL` → `OVERDUE` | Đặc tả 07 đã duyệt (Quy tắc tính) thêm trạng thái **Còn nợ quá hạn**; dữ liệu mẫu có đợt hạn 15/01/2025 mới thu 5/9,9 triệu nên đúng là quá hạn | Giữ nguyên `paidAmount` 5.000.000, dịch vụ, khách hàng; test công nợ ngay sau vẫn kiểm số quá hạn |
 
 Khác: `apps/web/.../contract-form.page.spec.ts`: fixture `ContractDetail` thêm các trường mới của đợt (`dueRule`, `dueOffsetDays`, `milestoneDate`, `awaitingMilestone`, `overdueDays`) và `overdueAmount` — chỉ do kiểu dữ liệu đổi (J10). Test mới: e2e `installment-milestone` (4), unit `common/receivables.spec` (+2), `contract-calculator.spec` (+1), web `contract-form.page.spec` (+1).
+
+## 07-D3 (29/10/2026) — đề nghị thanh toán DOCX + VietQR
+
+Không sửa kỳ vọng test cũ. `src/modules/contracts/commercial-documents/docx-engine.spec.ts`: fixture thêm `bankBin` cho công ty và `id`, `allocations` cho đợt — chỉ do kiểu dữ liệu đổi (tính số còn thiếu của đợt, mã BIN cho VietQR); `buildTemplateData` giữ được cách gọi cũ (nhóm `payment` tuỳ chọn). Test mới: unit `common/utils/vietqr.spec` (4), `payment-request.builder.spec` (4); e2e `payment-requests` (4); web `payment-request.store.spec` (3).

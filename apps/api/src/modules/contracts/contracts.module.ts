@@ -60,5 +60,7 @@ import { ServiceTeamsService } from './service-teams/service-teams.service';
     AuditNotesService,
     ServiceTeamsService,
   ],
+  // 07-D3: thu tiền lập đề nghị thanh toán từ mẫu hồ sơ 04-C.
+  exports: [ContractDocumentsService],
 })
 export class ContractsModule {}

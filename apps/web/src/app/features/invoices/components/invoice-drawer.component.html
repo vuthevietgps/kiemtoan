@@ -1,0 +1,176 @@
+<nz-drawer
+  [nzVisible]="!!detail()"
+  [nzWidth]="width()"
+  [nzTitle]="text.detail"
+  (nzOnClose)="closed.emit()"
+>
+  <ng-container *nzDrawerContent>
+    @if (detail(); as d) {
+      <h3 class="title">{{ identity(d) }} · {{ d.total | vnd }}</h3>
+      <div class="tags">
+        <nz-tag [nzColor]="colors[d.status]">{{ labels[d.status] }}</nz-tag>
+        <nz-tag>{{ kindLabels[d.kind] }}</nz-tag>
+      </div>
+
+      @if (error()) {
+        <nz-alert class="block" nzType="error" nzShowIcon [nzMessage]="error()" />
+      }
+      @if (d.reason) {
+        <nz-alert class="block" nzType="info" [nzMessage]="text.reason + ': ' + d.reason" />
+      }
+
+      <dl class="fields">
+        <dt>{{ text.contract }}</dt>
+        <dd>
+          <button type="button" class="link" (click)="openContract.emit(d.contract.id)">
+            {{ d.contract.code }}
+          </button>
+        </dd>
+        <dt>{{ text.buyer }}</dt>
+        <dd>{{ d.buyerName ?? d.contract.customer.name }}</dd>
+        <dt>{{ text.taxCode }}</dt>
+        <dd>{{ d.buyerTaxCode ?? '—' }}</dd>
+        <dt>{{ text.address }}</dt>
+        <dd>{{ d.buyerAddress ?? '—' }}</dd>
+        <dt>{{ text.email }}</dt>
+        <dd>{{ d.buyerEmail ?? '—' }}</dd>
+        <dt>{{ text.subtotal }}</dt>
+        <dd>{{ d.subtotal | vnd }}</dd>
+        <dt>{{ text.vat }}</dt>
+        <dd>{{ d.vatAmount | vnd }}</dd>
+        <dt>{{ text.total }}</dt>
+        <dd>
+          <b>{{ d.total | vnd }}</b>
+        </dd>
+        @if (d.installments.length) {
+          <dt>{{ text.installments }}</dt>
+          <dd>
+            @for (i of d.installments; track i.installment.id; let last = $last) {
+              {{ i.installment.name }} ({{ i.installment.dueDate | date: 'dd/MM/yyyy' }}){{
+                last ? '' : ', '
+              }}
+            }
+          </dd>
+        }
+        @if (d.issueDate) {
+          <dt>{{ text.issueDate }}</dt>
+          <dd>{{ d.issueDate | date: 'dd/MM/yyyy' }}</dd>
+        }
+        @if (d.lookupCode) {
+          <dt>{{ text.lookupCode }}</dt>
+          <dd>{{ d.lookupCode }}</dd>
+        }
+        @if (d.taxAuthorityCode) {
+          <dt>{{ text.taxAuthorityCode }}</dt>
+          <dd>{{ d.taxAuthorityCode }}</dd>
+        }
+        @if (d.issuedByName) {
+          <dt>{{ text.issuedBy }}</dt>
+          <dd>{{ d.issuedByName }}</dd>
+        }
+        @if (d.note) {
+          <dt>{{ text.note }}</dt>
+          <dd>{{ d.note }}</dd>
+        }
+      </dl>
+
+      <h4>{{ text.files }}</h4>
+      @for (f of d.documents; track f.id) {
+        <button type="button" class="link file" (click)="download.emit(f)">{{ f.fileName }}</button>
+      } @empty {
+        <p class="muted">{{ d.migrated ? text.migrated : text.noFiles }}</p>
+      }
+
+      @if (d.related || d.derived.length) {
+        <h4>{{ text.related }}</h4>
+        @if (d.related; as r) {
+          <button type="button" class="linked" (click)="openInvoice.emit(r.id)">
+            <span>{{ text.original }}: {{ identity(r) }}</span>
+            <nz-tag [nzColor]="colors[r.status]">{{ labels[r.status] }}</nz-tag>
+          </button>
+        }
+        @for (r of d.derived; track r.id) {
+          <button type="button" class="linked" (click)="openInvoice.emit(r.id)">
+            <span>{{ kindLabels[r.kind] }}: {{ identity(r) }} · {{ r.total | vnd }}</span>
+            <nz-tag [nzColor]="colors[r.status]">{{ labels[r.status] }}</nz-tag>
+          </button>
+        }
+      }
+
+      @if (!cancelling()) {
+        <div class="actions">
+          @if (requested() && canUpdate()) {
+            <button nz-button nzType="primary" type="button" (click)="record.emit('issue')">
+              {{ text.record }}
+            </button>
+          }
+          @if (requested() && canCreate()) {
+            <button nz-button type="button" (click)="editBuyer.emit()">{{ text.editBuyer }}</button>
+          }
+          @if (requested() && canUpdate()) {
+            <button nz-button nzDanger type="button" (click)="cancelling.set(true)">
+              {{ text.cancel }}
+            </button>
+          }
+          @if (canAdjust()) {
+            <button nz-button type="button" (click)="record.emit('adjust')">
+              {{ text.adjust }}
+            </button>
+          }
+          @if (canReplace()) {
+            <button nz-button type="button" (click)="record.emit('replace')">
+              {{ text.replace }}
+            </button>
+          }
+        </div>
+      } @else {
+        <div class="form">
+          <label>
+            {{ text.cancelReason }}
+            <textarea
+              nz-input
+              rows="2"
+              maxlength="500"
+              [ngModel]="reason()"
+              (ngModelChange)="reason.set($event)"
+            ></textarea>
+          </label>
+          <div class="actions">
+            <button nz-button type="button" (click)="cancelling.set(false)">
+              {{ text.close }}
+            </button>
+            <button
+              nz-button
+              nzDanger
+              nzType="primary"
+              type="button"
+              [disabled]="!reasonValid()"
+              [nzLoading]="busy()"
+              (click)="confirmCancel()"
+            >
+              {{ text.cancel }}
+            </button>
+          </div>
+        </div>
+      }
+
+      <h4>{{ text.history }}</h4>
+      <nz-timeline>
+        @for (e of d.events; track e.id) {
+          <nz-timeline-item>
+            <div>
+              <strong>{{ labels[e.toStatus] }}</strong>
+              <span class="muted"> · {{ e.occurredAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+            @if (e.note) {
+              <div>{{ e.note }}</div>
+            }
+            @if (e.actorName) {
+              <div class="muted">{{ e.actorName }}</div>
+            }
+          </nz-timeline-item>
+        }
+      </nz-timeline>
+    }
+  </ng-container>
+</nz-drawer>

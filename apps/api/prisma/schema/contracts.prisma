@@ -143,9 +143,10 @@ model PaymentInstallment {
   /// Ngày phát hành BCKT dùng tính hạn; null = Chờ phát hành.
   milestoneDate DateTime?          @map("milestone_date") @db.Date
 
-  contract    Contract            @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  payments    Payment[]
-  allocations PaymentAllocation[]
+  contract     Contract             @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  payments     Payment[]
+  allocations  PaymentAllocation[]
+  invoiceLinks InvoiceInstallment[]
 
   @@index([contractId])
   @@map("payment_installments")
@@ -253,31 +254,108 @@ model PaymentAllocation {
 }
 
 enum InvoiceStatus {
-  REQUESTED // Đề nghị xuất
-  ISSUED // Đã phát hành
-  CANCELLED // Huỷ
+  REQUESTED // Chờ xuất (đề nghị)
+  ISSUED // Đã xuất (đã ghi nhận phát hành)
+  ADJUSTED // Đã điều chỉnh (08 K6) — vẫn hiệu lực, cộng các hoá đơn điều chỉnh
+  REPLACED // Bị thay thế (08 K6) — không còn hiệu lực
+  CANCELLED // Huỷ đề nghị (chưa xuất)
+}
+
+/// 08 K6: hoá đơn gốc, hoá đơn điều chỉnh (tăng/giảm), hoá đơn thay thế.
+enum InvoiceKind {
+  ORIGINAL
+  ADJUSTMENT
+  REPLACEMENT
 }
 
 model Invoice {
-  id            String        @id @default(uuid()) @db.Uuid
-  contractId    String        @map("contract_id") @db.Uuid
-  number        String? // số hoá đơn
-  symbol        String? // ký hiệu
-  issueDate     DateTime?     @map("issue_date") @db.Date
-  subtotal      Decimal       @db.Decimal(18, 2)
-  vatAmount     Decimal       @map("vat_amount") @db.Decimal(18, 2)
-  total         Decimal       @db.Decimal(18, 2)
-  status        InvoiceStatus @default(REQUESTED)
-  note          String?
-  requestedById String        @map("requested_by_id") @db.Uuid
-  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  id               String        @id @default(uuid()) @db.Uuid
+  contractId       String        @map("contract_id") @db.Uuid
+  kind             InvoiceKind   @default(ORIGINAL)
+  /// Hoá đơn gốc mà hoá đơn điều chỉnh / thay thế liên quan (08 K6).
+  relatedId        String?       @map("related_id") @db.Uuid
+  templateCode     String?       @map("template_code") // ký hiệu mẫu số, vd. 1
+  symbol           String? // ký hiệu, vd. C25TAA
+  number           String? // số hoá đơn
+  issueDate        DateTime?     @map("issue_date") @db.Date
+  lookupCode       String?       @map("lookup_code") // mã tra cứu
+  taxAuthorityCode String?       @map("tax_authority_code") // mã của CQT
+  /// Người mua — bản chụp từ KH lúc đề nghị (08 K7).
+  buyerName        String?       @map("buyer_name")
+  buyerTaxCode     String?       @map("buyer_tax_code")
+  buyerAddress     String?       @map("buyer_address")
+  buyerEmail       String?       @map("buyer_email")
+  /// Âm với hoá đơn điều chỉnh giảm.
+  subtotal         Decimal       @db.Decimal(18, 2)
+  vatAmount        Decimal       @map("vat_amount") @db.Decimal(18, 2)
+  total            Decimal       @db.Decimal(18, 2)
+  status           InvoiceStatus @default(REQUESTED)
+  note             String?
+  /// Lý do điều chỉnh / thay thế (trên hoá đơn mới) hoặc huỷ đề nghị.
+  reason           String?
+  requestedById    String        @map("requested_by_id") @db.Uuid
+  issuedById       String?       @map("issued_by_id") @db.Uuid
+  issuedAt         DateTime?     @map("issued_at") @db.Timestamptz
+  /// 08 K10: dữ liệu demo chuyển đổi (không có file, không có lịch sử).
+  migrated         Boolean       @default(false)
+  revision         Int           @default(1)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
-  contract    Contract @relation(fields: [contractId], references: [id])
-  requestedBy User     @relation(fields: [requestedById], references: [id])
+  contract     Contract             @relation(fields: [contractId], references: [id])
+  requestedBy  User                 @relation(fields: [requestedById], references: [id])
+  related      Invoice?             @relation("InvoiceRelated", fields: [relatedId], references: [id])
+  derived      Invoice[]            @relation("InvoiceRelated")
+  installments InvoiceInstallment[]
+  documents    InvoiceDocument[]
+  events       InvoiceEvent[]
 
+  /// 08 K5: chặn trùng mẫu số + ký hiệu + số toàn công ty (đề nghị chưa xuất để trống).
+  @@unique([templateCode, symbol, number])
   @@index([contractId])
+  @@index([status])
   @@map("invoices")
+}
+
+/// 08 K2: đề nghị xuất theo đợt thanh toán.
+model InvoiceInstallment {
+  invoiceId     String @map("invoice_id") @db.Uuid
+  installmentId String @map("installment_id") @db.Uuid
+
+  invoice     Invoice            @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  installment PaymentInstallment @relation(fields: [installmentId], references: [id], onDelete: Cascade)
+
+  @@id([invoiceId, installmentId])
+  @@index([installmentId])
+  @@map("invoice_installments")
+}
+
+/// 08 K5: file PDF/XML hoá đơn trong kho hồ sơ 02 (nhóm Hoá đơn).
+model InvoiceDocument {
+  invoiceId  String @map("invoice_id") @db.Uuid
+  documentId String @map("document_id") @db.Uuid
+
+  invoice  Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id])
+
+  @@id([invoiceId, documentId])
+  @@map("invoice_documents")
+}
+
+/// 08 K9: lịch sử hoá đơn (đề nghị, sửa, xuất, điều chỉnh, thay thế, huỷ).
+model InvoiceEvent {
+  id         String         @id @default(uuid()) @db.Uuid
+  invoiceId  String         @map("invoice_id") @db.Uuid
+  fromStatus InvoiceStatus? @map("from_status")
+  toStatus   InvoiceStatus  @map("to_status")
+  note       String?
+  actorId    String         @map("actor_id") @db.Uuid
+  occurredAt DateTime       @default(now()) @map("occurred_at") @db.Timestamptz
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_events")
 }
 
 // Kế hoạch thực hiện của một dòng dịch vụ (đặc tả 04-B, PL1 III.1): chọn phiên bản quy trình,

@@ -78,6 +78,22 @@ const INSTALLMENTS_TABLE: SampleBlock = {
   row: ['index', 'name', 'dueDate', 'amount'],
 };
 
+/** 07-D3 (J9): khối đề nghị thanh toán — các đợt được chọn, số tiền, nội dung CK và ảnh VietQR. */
+const PAYMENT_BLOCK: SampleBlock[] = [
+  { paragraph: 'Đề nghị thanh toán: {{payment.installments}}', bold: true },
+  {
+    paragraph:
+      'Số tiền: {{payment.amount}} đồng (bằng chữ: {{payment.amountInWords}})',
+    bold: true,
+  },
+  { paragraph: 'Hạn thanh toán: {{payment.dueDate}}' },
+  {
+    paragraph: 'Nội dung chuyển khoản: {{payment.transferContent}}',
+  },
+  { paragraph: 'Quét mã VietQR bằng ứng dụng ngân hàng để chuyển khoản:' },
+  { paragraph: '{{IMAGE payment.qr}}', center: true },
+];
+
 /**
  * Mẫu ví dụ cho từng loại hồ sơ, ghi rõ là mẫu giả: chưa có mẫu Word thật (QD07).
  * Giám đốc tải về để xem cách đặt trường trộn rồi thay bằng mẫu của công ty.
@@ -108,6 +124,7 @@ export function sampleTemplate(type: DocumentTemplateType): Promise<Buffer> {
     { paragraph: 'Tổng thanh toán: {{contract.total}} đồng', bold: true },
     { paragraph: 'Bằng chữ: {{contract.totalInWords}}' },
     ...(withInstallments ? [INSTALLMENTS_TABLE] : []),
+    ...(type === 'PAYMENT_REQUEST' ? PAYMENT_BLOCK : []),
     {
       paragraph:
         'Tài khoản nhận: {{company.bankAccount}} tại {{company.bankName}}',
