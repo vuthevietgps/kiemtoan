@@ -124,7 +124,7 @@
       @if (canSeeCredentials()) {
         <nz-tab [nzTitle]="text.credentials">
           <ng-template nz-tab>
-            <app-credential-table [customerId]="c.id" />
+            <app-credential-vault [customerId]="c.id" />
           </ng-template>
         </nz-tab>
       }

@@ -5,10 +5,12 @@ import {
   Prisma,
   TaskStatus,
 } from '@prisma/client';
+import { staleCredentialDeliveries } from './credential-reminders';
 
 /**
  * I12: email nhắc còn chờ gửi mà không còn đúng — hạn đã đổi (mốc mới có khoá mới), việc đã xong/tạm
- * dừng/xoá, nghĩa vụ đã nộp/không áp dụng, lượt soát xét đã qua — chuyển sang Huỷ. Trả số dòng huỷ.
+ * dừng/xoá, nghĩa vụ đã nộp/không áp dụng, lượt soát xét đã qua, token đã trả / gia hạn (09-C) — chuyển
+ * sang Huỷ. Trả số dòng huỷ.
  */
 export async function cancelStaleEmails(
   db: Prisma.TransactionClient,
@@ -17,7 +19,7 @@ export async function cancelStaleEmails(
     where: {
       channel: DeliveryChannel.EMAIL,
       status: DeliveryStatus.PENDING,
-      subjectType: { in: ['TASK', 'OBLIGATION'] },
+      subjectType: { in: ['TASK', 'OBLIGATION', 'CREDENTIAL'] },
     },
     select: {
       id: true,
@@ -42,7 +44,14 @@ export async function cancelStaleEmails(
   ]);
   const task = new Map(tasks.map((t) => [t.id, t]));
   const obligation = new Map(obligations.map((o) => [o.id, o]));
+  const staleCredentials = new Set(
+    await staleCredentialDeliveries(
+      db,
+      pending.filter((p) => p.subjectType === 'CREDENTIAL'),
+    ),
+  );
   const stale = pending.filter((p) => {
+    if (p.subjectType === 'CREDENTIAL') return staleCredentials.has(p.id);
     if (p.subjectType === 'OBLIGATION') {
       const o = obligation.get(p.subjectId);
       return (

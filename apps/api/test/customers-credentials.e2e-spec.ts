@@ -54,7 +54,8 @@ describe('Client credentials (e2e)', () => {
         .send({
           customerId,
           type: 'DIGITAL_SIGNATURE',
-          username: '0101234567',
+          provider: 'VNPT_CA',
+          serialNumber: '0101234567',
           password: 'Token@2025',
           expiresAt: '2025-12-31',
         })
@@ -99,7 +100,7 @@ describe('Client credentials (e2e)', () => {
       await ctx
         .api(ctx.users.manager)
         .patch(`/client-credentials/${credentialId}`)
-        .send({ password: 'Moi@2026', status: 'NEED_CHANGE' })
+        .send({ revision: 1, password: 'Moi@2026', status: 'NEED_CHANGE' })
         .expect(200);
       const res = await ctx
         .api(ctx.users.manager)

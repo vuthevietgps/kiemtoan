@@ -25,7 +25,7 @@ import { AuthService } from '../../../../core/auth/auth.service';
 import { PageHeaderComponent } from '../../../../shared/components/page-header.component';
 import { CanDirective } from '../../../../shared/directives/can.directive';
 import { VndPipe } from '../../../../shared/pipes/vnd.pipe';
-import { CredentialTableComponent } from '../../../client-credentials/components/credential-table/credential-table.component';
+import { CredentialVaultComponent } from '../../../client-credentials/components/credential-vault.component';
 import { CustomerObligationsPanel } from '../../../deadlines/pages/customer-obligations.panel';
 import { ReceivablesPanel } from '../../../payments/pages/receivables.panel';
 import { CustomerDocumentsPanel } from '../customer-documents.panel';
@@ -67,7 +67,7 @@ import { HttpErrorResponse } from '@angular/common/http';
     CanDirective,
     CustomerFormComponent,
     CustomerDocumentsPanel,
-    CredentialTableComponent,
+    CredentialVaultComponent,
     CustomerRelationshipsPanel,
     CustomerObligationsPanel,
     ReceivablesPanel,

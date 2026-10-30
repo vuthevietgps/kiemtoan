@@ -51,6 +51,7 @@ beforeAll(async () => {
     .send({
       customerId,
       type: 'OTHER',
+      label: 'Cổng khác',
       username: 'test',
       password: 'CustomerSecret@123',
     })
@@ -229,6 +230,7 @@ describe('Explicit secret access and recent password verification', () => {
       .send({
         customerId: other.id,
         type: 'OTHER',
+        label: 'Cổng khác',
         username: 'other',
         password: 'NeverReveal@123',
       })

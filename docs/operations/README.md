@@ -4,6 +4,7 @@
 - [Database migration](database-migration.md): tạo DB mới, ghi nhận baseline trên DB đã có dữ liệu, database test riêng và bằng chứng đã thử.
 - [Vận hành tài khoản và phân quyền](identity-access.md): migration 01, mời/kích hoạt, SMTP, duyệt quyền và thu hồi phiên.
 - [Khách hàng, Excel và hồ sơ](customer-documents.md): migration 02, phân công, nhập/xuất XLSX, phiên bản/preview và assets PDF.
+- [Khoá mã hoá kho tài khoản](credential-key.md): giữ `CREDENTIAL_KEY` tách khỏi bản sao lưu, kiểm tra khoá sau khôi phục, xoay khoá (09).
 - [Đặc tả nền tảng](../features/00-foundation.md): tiêu chí và kết quả từng gói 00-A…D.
 - [Hiện trạng](../planning/current-status.md): giới hạn kiểm chứng và các điều kiện vận hành còn thiếu.
 

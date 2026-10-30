@@ -24,6 +24,7 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:status": "prisma migrate status",
     "db:seed": "prisma db seed",
+    "credential-key": "ts-node --transpile-only src/core/crypto/credential-key.cli.ts",
     "pretest:e2e": "node test/utils/prepare-test-db.js"
   },
   "dependencies": {

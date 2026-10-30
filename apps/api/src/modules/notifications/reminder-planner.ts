@@ -35,7 +35,7 @@ type Db = Prisma.TransactionClient;
 const DAY_MS = 86_400_000;
 
 export interface PlannedReminder {
-  subjectType: 'TASK' | 'OBLIGATION' | 'USER';
+  subjectType: 'TASK' | 'OBLIGATION' | 'USER' | 'CREDENTIAL';
   subjectId: string;
   milestone: string;
   dueKey: Date;

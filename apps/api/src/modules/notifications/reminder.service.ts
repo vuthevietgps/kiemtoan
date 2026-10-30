@@ -7,6 +7,7 @@ import { PrismaService } from '../../core/prisma/prisma.service';
 import { loadUrgencyConfig } from '../deadlines/urgency';
 import { loadWorkingCalendar } from '../deadlines/working-calendar.loader';
 import { todayVn } from '../reports/utils/period.util';
+import { planCredentialReminders } from './credential-reminders';
 import { NotificationMailer } from './notification-mailer';
 import { cancelStaleEmails } from './reminder-cancel';
 import {
@@ -124,6 +125,8 @@ export class ReminderService implements OnApplicationBootstrap {
       ...(await planTaskReminders(this.prisma, ctx)),
       ...(await planObligationReminders(this.prisma, ctx)),
       ...(await planReviewSla(this.prisma, ctx)),
+      // 09-C (L9): hạn token / tài khoản và token mượn quá hạn trả.
+      ...(await planCredentialReminders(this.prisma, ctx)),
     ];
     if (ctx.calendar.isWorkingDay(ctx.today))
       planned.push(...(await this.planDigests(ctx)));

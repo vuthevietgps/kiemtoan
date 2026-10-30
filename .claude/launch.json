@@ -119,6 +119,22 @@
       "url": "http://localhost:3000"
     },
     {
+      "name": "api-ui-09",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "apps/api",
+        "run",
+        "start:dev"
+      ],
+      "env": {
+        "DATABASE_URL": "postgresql://ketoan:ketoan_dev@localhost:5433/ketoan_mig_09b",
+        "REMINDERS_ENABLED": "false"
+      },
+      "port": 3000,
+      "url": "http://localhost:3000"
+    },
+    {
       "name": "api-ui-06d2-smtp",
       "runtimeExecutable": "npm",
       "runtimeArgs": [

@@ -1,9 +1,12 @@
 import {
+  CredentialEventType,
   CredentialStatus,
   CredentialType,
   CustomerStatus,
   PrismaClient,
   TaxPeriod,
+  TokenCustody,
+  TokenProvider,
 } from '@prisma/client';
 import { createCipheriv, randomBytes } from 'node:crypto';
 
@@ -135,9 +138,13 @@ interface CredentialSeed {
   type: CredentialType;
   label: string;
   url: string;
-  username: string;
+  username?: string;
   password: string;
   expiresInDays?: number;
+  provider?: TokenProvider;
+  serialNumber?: string;
+  custody?: TokenCustody;
+  storageLocation?: string;
   status: CredentialStatus;
 }
 
@@ -156,7 +163,10 @@ const CREDENTIALS: CredentialSeed[] = [
     type: CredentialType.DIGITAL_SIGNATURE,
     label: 'Token VNPT-CA',
     url: '',
-    username: 'TOKEN-ABC-01',
+    provider: TokenProvider.VNPT_CA,
+    serialNumber: 'TOKEN-ABC-01',
+    custody: TokenCustody.OFFICE,
+    storageLocation: 'Tủ hồ sơ A',
     password: '12345678',
     expiresInDays: 20,
     status: CredentialStatus.ACTIVE,
@@ -217,7 +227,13 @@ export async function seedCustomers(prisma: PrismaClient): Promise<void> {
     const customerId = customerIds.get(taxCode);
     if (!customerId) continue;
     const exists = await prisma.clientCredential.findFirst({
-      where: { customerId, type: cred.type, username: cred.username },
+      where: {
+        customerId,
+        type: cred.type,
+        ...(cred.serialNumber
+          ? { serialNumber: cred.serialNumber }
+          : { username: cred.username }),
+      },
       select: { id: true },
     });
     if (exists) continue;
@@ -232,6 +248,7 @@ export async function seedCustomers(prisma: PrismaClient): Promise<void> {
         customerId,
         expiresAt,
         passwordEnc: encrypt(password),
+        events: { create: { type: CredentialEventType.CREATED } },
       },
     });
   }

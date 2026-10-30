@@ -87,7 +87,8 @@ pwsh -File scripts/restore-app.ps1 -Project ketoan-restored -EnvFile .env.restor
 ```
 
 Restore đối chiếu checksum trước khi tạo project và từ chối đích đã có container/volume.
-Kiểm tra dữ liệu và đăng nhập ở project mới trước khi chuyển lưu lượng; script không tự
+Kiểm tra dữ liệu, đăng nhập và chạy kiểm tra khoá mã hoá kho tài khoản
+([hướng dẫn](docs/operations/credential-key.md)) ở project mới trước khi chuyển lưu lượng; script không tự
 chuyển tên miền hay xoá project cũ.
 
 ## Tài khoản demo (mật khẩu `Demo@123`)

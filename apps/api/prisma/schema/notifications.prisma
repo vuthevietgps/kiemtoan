@@ -34,7 +34,7 @@ enum DeliveryStatus {
 // lại/khởi động lại/hai tiến trình: (đối tượng, mốc, hạn tại thời điểm, kênh, người nhận).
 model NotificationDelivery {
   id             String               @id @default(uuid()) @db.Uuid
-  subjectType    String               @map("subject_type") // TASK | OBLIGATION | USER
+  subjectType    String               @map("subject_type") // TASK | OBLIGATION | USER | CREDENTIAL (09-C)
   subjectId      String               @map("subject_id") @db.Uuid
   milestone      String
   dueKey         DateTime             @map("due_key") @db.Date
