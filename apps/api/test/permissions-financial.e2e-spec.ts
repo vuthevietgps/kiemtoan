@@ -102,20 +102,19 @@ describe('Financial fields and report categories', () => {
     expect((manager.body as { total: string }).total).toBe('1100000');
   });
   it('removes dashboard money and separates finance from operational report access', async () => {
+    // 10 (M1): nhân viên chỉ có tab Vận hành (không tiền); tab Tài chính 403.
     const dashboard = await ctx
       .api(ctx.users.staff)
-      .get('/dashboard?from=2026-10-01&to=2026-10-31')
+      .get('/dashboard/operations?from=2026-10-01&to=2026-10-31')
       .expect(200);
-    const body = dashboard.body as {
-      kpis: Record<string, unknown>;
-      recentContracts: Record<string, unknown>[];
-    };
-    expect(body.kpis).toHaveProperty('contracts');
-    expect(body.kpis).not.toHaveProperty('revenue');
-    expect(body.kpis).not.toHaveProperty('totalPayable');
-    expect(body).not.toHaveProperty('revenueByServiceType');
-    expect(body).not.toHaveProperty('paymentStatus');
-    expect(body.recentContracts[0]).not.toHaveProperty('total');
+    const body = dashboard.body as { cards: Record<string, unknown> };
+    expect(body.cards).toHaveProperty('activeContracts');
+    for (const key of ['revenue', 'totalPayable', 'paymentStatus', 'subtotal'])
+      expect(JSON.stringify(dashboard.body)).not.toContain(key);
+    await ctx
+      .api(ctx.users.staff)
+      .get('/dashboard/finance?from=2026-10-01&to=2026-10-31')
+      .expect(403);
     for (const path of [
       '/reports/revenue',
       '/reports/receivables',
@@ -125,40 +124,48 @@ describe('Financial fields and report categories', () => {
     ])
       await ctx.api(ctx.users.staff).get(path).expect(403);
     for (const path of [
-      '/reports/task-compliance',
-      '/reports/staff-performance',
-      '/reports/task-compliance?format=csv',
+      '/reports/capability',
+      '/reports/capability/export',
+      '/reports/deadline-compliance',
     ])
       await ctx.api(ctx.users.cashier).get(path).expect(403);
     await ctx.api(ctx.users.cashier).get('/reports/revenue').expect(200);
     const cashier = await ctx
       .api(ctx.users.cashier)
-      .get('/dashboard')
+      .get('/dashboard/operations')
       .expect(200);
-    for (const key of ['myTasks', 'myTaskItems', 'upcoming', 'reportDeadlines'])
-      expect(cashier.body as object).not.toHaveProperty(key);
-    await ctx.api(ctx.users.staff).get('/reports/task-compliance').expect(200);
+    const cards = (cashier.body as { cards: Record<string, unknown> }).cards;
+    for (const key of ['openTasks', 'overdueTasks', 'awaitingMyReview'])
+      expect(cards[key]).toBeNull();
+    expect(
+      (cashier.body as { priorityTasks: unknown }).priorityTasks,
+    ).toBeNull();
+    await ctx.api(ctx.users.staff).get('/reports/capability').expect(200);
   });
 });
 
 describe('Financial revocation on operational exports', () => {
-  it('does not leak revenue through performance JSON or CSV when finance is revoked', async () => {
+  it('does not leak revenue through capability JSON or Excel when finance is revoked', async () => {
     await ctx
       .api(ctx.users.director)
       .post(`/users/${ctx.users.manager.id}/access-requests`)
       .send({ role: 'MANAGER', financialAccess: false })
       .expect(201);
     await relogin(ctx, ctx.users.manager);
-    const report = await ctx
+    // 10-E: Đánh giá năng lực không có số tiền ở JSON lẫn Excel.
+    for (const role of ['ASSISTANT', 'LEAD', 'MANAGER']) {
+      const report = await ctx
+        .api(ctx.users.manager)
+        .get(`/reports/capability?role=${role}`)
+        .expect(200);
+      for (const key of ['revenue', 'contractValue', 'amount'])
+        expect(JSON.stringify(report.body)).not.toContain(key);
+    }
+    await ctx
       .api(ctx.users.manager)
-      .get('/reports/staff-performance')
-      .expect(200);
-    expect(JSON.stringify(report.body)).not.toContain('revenue');
-    const csv = await ctx
-      .api(ctx.users.manager)
-      .get('/reports/staff-performance?format=csv')
-      .expect(200);
-    expect(csv.text).not.toContain('Doanh thu');
+      .get('/reports/capability/export')
+      .expect(200)
+      .expect('Content-Type', /spreadsheetml/);
     await ctx.api(ctx.users.manager).get('/reports/revenue').expect(403);
     await ctx
       .api(ctx.users.director)

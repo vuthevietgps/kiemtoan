@@ -1,74 +1,39 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, ServiceStatus, TaskStatus } from '@prisma/client';
-import { contractScope, taskScope } from '../../core/access-control/data-scope';
+import { Prisma, ServiceStatus } from '@prisma/client';
+import { contractScope } from '../../core/access-control/data-scope';
 import type { AuthUser } from '../../core/auth/auth-user.interface';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { COUNTED_PAYMENT } from '../payments/payment-allocation';
-import { revenueContractWhere } from '../reports/utils/contract-filter.util';
 import {
-  addDays,
   changePercent,
   currentMonth,
-  daysBetween,
   formatBusinessDate,
   NON_REVENUE_STATUSES,
   Period,
   previousPeriod,
   resolvePeriod,
-  todayVn,
 } from '../reports/utils/period.util';
+import { approvedContractWhere } from '../reports/utils/contract-filter.util';
 import { sumDecimals } from '../reports/utils/report-grouping.util';
-import {
-  STATUS_GROUPS,
-  StatusGroup,
-  statusGroup,
-} from '../tasks/task-status.rules';
 import { DashboardQueryDto } from './dto/dashboard-query.dto';
 
 const ZERO = new Prisma.Decimal(0);
-
-const TASK_ITEM_SELECT = {
-  id: true,
-  title: true,
-  dueDate: true,
-  status: true,
-  completedAt: true,
-  customer: { select: { name: true } },
-  assignee: { select: { fullName: true } },
-} satisfies Prisma.TaskSelect;
-
-type TaskRow = Prisma.TaskGetPayload<{ select: typeof TASK_ITEM_SELECT }>;
-
-function toTaskItem(task: TaskRow, today: Date) {
-  return {
-    id: task.id,
-    title: task.title,
-    customerName: task.customer.name,
-    assigneeName: task.assignee?.fullName ?? null,
-    status: task.status,
-    dueDate: formatBusinessDate(task.dueDate),
-    completedAt: task.completedAt,
-    daysLeft: daysBetween(today, task.dueDate),
-  };
-}
-
 /**
- * Tổng quan: số liệu đọc trực tiếp từ hợp đồng, dòng dịch vụ, thu tiền, công việc
- * và luôn lọc theo phạm vi dữ liệu của người xem (quản trị hệ thống không có phạm vi → số 0).
+ * Tab Tài chính của tổng quan (đặc tả 10, M1, M4, M5): 5 thẻ G (giá trị HĐ trước / gồm VAT so kỳ liền
+ * trước, số HĐ hiệu lực / mới duyệt, dịch vụ hoàn thành / chưa), 3 biểu đồ, HĐ gần đây. Chỉ người có
+ * `finance:view` (controller kiểm). Đã thu theo phiếu Đã duyệt (07).
  */
 @Injectable()
-export class DashboardService {
+export class FinanceOverviewService {
   constructor(private readonly prisma: PrismaService) {}
 
   async overview(query: DashboardQueryDto, user: AuthUser) {
     const period = resolvePeriod(query.from, query.to, currentMonth());
     const previous = previousPeriod(period);
-    const today = todayVn();
-    const [kpis, charts, recentContracts, tasks] = await Promise.all([
+    const [kpis, charts, recentContracts] = await Promise.all([
       this.kpis(user, period, previous),
       this.charts(user, period),
       this.recentContracts(user),
-      this.tasks(user, today),
     ]);
     return {
       from: formatBusinessDate(period.from),
@@ -78,12 +43,11 @@ export class DashboardService {
       kpis,
       ...charts,
       recentContracts,
-      ...tasks,
     };
   }
 
   private async kpis(user: AuthUser, period: Period, previous: Period) {
-    const where = revenueContractWhere(user, period);
+    const where = approvedContractWhere(user, period);
     const [current, before, effective, servicesTotal, servicesDone] =
       await Promise.all([
         this.prisma.contract.aggregate({
@@ -92,7 +56,7 @@ export class DashboardService {
           _count: { _all: true },
         }),
         this.prisma.contract.aggregate({
-          where: revenueContractWhere(user, previous),
+          where: approvedContractWhere(user, previous),
           _sum: { subtotal: true, total: true },
         }),
         // Hợp đồng còn hiệu lực trong kỳ: bắt đầu trước cuối kỳ, chưa kết thúc trước đầu kỳ.
@@ -114,21 +78,22 @@ export class DashboardService {
           where: { contract: where, status: ServiceStatus.COMPLETED },
         }),
       ]);
-    const revenue = current._sum.subtotal ?? ZERO;
-    const totalPayable = current._sum.total ?? ZERO;
-    const prevRevenue = before._sum.subtotal ?? ZERO;
-    const prevPayable = before._sum.total ?? ZERO;
+    const money = (
+      value: Prisma.Decimal | null,
+      prev: Prisma.Decimal | null,
+    ) => {
+      const v = value ?? ZERO;
+      const p = prev ?? ZERO;
+      // M5: kỳ so sánh bằng 0 → không so được (null → giao diện hiện "—"), kể cả khi kỳ này cũng 0.
+      return {
+        value: v,
+        previous: p,
+        changePercent: p.isZero() ? null : changePercent(v, p),
+      };
+    };
     return {
-      revenue: {
-        value: revenue,
-        previous: prevRevenue,
-        changePercent: changePercent(revenue, prevRevenue),
-      },
-      totalPayable: {
-        value: totalPayable,
-        previous: prevPayable,
-        changePercent: changePercent(totalPayable, prevPayable),
-      },
+      revenue: money(current._sum.subtotal, before._sum.subtotal),
+      totalPayable: money(current._sum.total, before._sum.total),
       contracts: { total: effective, new: current._count._all },
       servicesDone,
       servicesTotal,
@@ -136,7 +101,7 @@ export class DashboardService {
   }
 
   private async charts(user: AuthUser, period: Period) {
-    const where = revenueContractWhere(user, period);
+    const where = approvedContractWhere(user, period);
     const [byType, statusCounts, contracts] = await Promise.all([
       this.prisma.contractService.groupBy({
         by: ['serviceTypeId'],
@@ -162,6 +127,7 @@ export class DashboardService {
     });
     const revenueByServiceType = byType
       .map((b) => ({
+        serviceTypeId: b.serviceTypeId,
         name: types.find((t) => t.id === b.serviceTypeId)?.name ?? '',
         amount: b._sum.amount ?? ZERO,
       }))
@@ -211,79 +177,5 @@ export class DashboardService {
       status: c.status,
       paidAmount: sumDecimals(c.payments.map((p) => p.amount)),
     }));
-  }
-
-  private async tasks(user: AuthUser, today: Date) {
-    const mine: Prisma.TaskWhereInput = {
-      assigneeId: user.id,
-      deletedAt: null,
-    };
-    const notDone = { not: TaskStatus.COMPLETED };
-    const [counts, todo, inProgress, done, upcoming, deadlines] =
-      await Promise.all([
-        this.prisma.task.groupBy({
-          by: ['status'],
-          where: mine,
-          _count: { _all: true },
-        }),
-        this.myTasks(mine, 'TODO'),
-        this.myTasks(mine, 'IN_PROGRESS'),
-        this.myTasks(mine, 'DONE'),
-        this.prisma.task.findMany({
-          where: {
-            AND: [
-              { OR: [{ assigneeId: user.id }, taskScope(user)] },
-              {
-                deletedAt: null,
-                status: notDone,
-                dueDate: { gte: today, lte: addDays(today, 14) },
-              },
-            ],
-          },
-          orderBy: { dueDate: 'asc' },
-          take: 5,
-          select: TASK_ITEM_SELECT,
-        }),
-        this.prisma.task.findMany({
-          where: {
-            AND: [taskScope(user), { deletedAt: null, status: notDone }],
-          },
-          orderBy: { dueDate: 'asc' },
-          take: 5,
-          select: TASK_ITEM_SELECT,
-        }),
-      ]);
-    // Ba nhóm trạng thái (05: Chưa làm / Đang làm / Hoàn thành) giữ khoá cũ cho giao diện hiện tại.
-    const count = (group: StatusGroup) =>
-      counts
-        .filter((c) => statusGroup(c.status) === group)
-        .reduce((sum, c) => sum + c._count._all, 0);
-    const item = (t: TaskRow) => toTaskItem(t, today);
-    return {
-      myTasks: {
-        TODO: count('TODO'),
-        IN_PROGRESS: count('IN_PROGRESS'),
-        DONE: count('DONE'),
-      },
-      myTaskItems: {
-        TODO: todo.map(item),
-        IN_PROGRESS: inProgress.map(item),
-        DONE: done.map(item),
-      },
-      upcoming: upcoming.map(item),
-      reportDeadlines: deadlines.map(item),
-    };
-  }
-
-  private myTasks(mine: Prisma.TaskWhereInput, group: StatusGroup) {
-    return this.prisma.task.findMany({
-      where: { ...mine, status: { in: [...STATUS_GROUPS[group]] } },
-      orderBy:
-        group === 'DONE'
-          ? { completedAt: { sort: 'desc', nulls: 'last' } }
-          : { dueDate: 'asc' },
-      take: 5,
-      select: TASK_ITEM_SELECT,
-    });
   }
 }

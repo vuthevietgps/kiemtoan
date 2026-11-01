@@ -15,5 +15,6 @@ import { ReminderService } from './reminder.service';
     ReminderService,
     ReminderDeliveriesService,
   ],
+  exports: [NotificationMailer],
 })
 export class NotificationsModule {}

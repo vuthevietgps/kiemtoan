@@ -1,0 +1,42 @@
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.domain {
+  width: 190px;
+}
+.team {
+  width: 180px;
+}
+.cell,
+.clickable {
+  cursor: pointer;
+}
+.cell:hover {
+  background: #f0f5ff;
+}
+th.group {
+  text-align: center;
+}
+/* G8: ngưỡng màu mặc định. */
+.tone {
+  display: inline-block;
+  min-width: 40px;
+  padding: 0 6px;
+  border-radius: 4px;
+  &[data-tone='good'] {
+    background: #e8f7ee;
+    color: #1e7a46;
+  }
+  &[data-tone='warn'] {
+    background: #fff7e0;
+    color: #a86b00;
+  }
+  &[data-tone='bad'] {
+    background: #fdecea;
+    color: #c0392b;
+  }
+}

@@ -26,7 +26,13 @@ export class NotificationMailer {
       .replace(/\/$/, '');
   }
 
-  async send(to: string, subject: string, text: string): Promise<void> {
+  /** `attachments`: file đính kèm (báo cáo định kỳ 10-F); nhắc việc không dùng. */
+  async send(
+    to: string,
+    subject: string,
+    text: string,
+    attachments?: { filename: string; content: Buffer }[],
+  ): Promise<void> {
     const user = this.config.get<string>('SMTP_USER');
     const transport = nodemailer.createTransport({
       host: this.config.getOrThrow<string>('SMTP_HOST'),
@@ -49,6 +55,7 @@ export class NotificationMailer {
       to,
       subject,
       text,
+      ...(attachments && { attachments }),
     });
   }
 }

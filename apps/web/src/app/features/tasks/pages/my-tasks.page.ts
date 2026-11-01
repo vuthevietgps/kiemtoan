@@ -4,6 +4,7 @@ import {
   Component,
   computed,
   effect,
+  input,
   inject,
   signal,
   untracked,
@@ -219,17 +220,22 @@ export class MyTasksPage {
   protected readonly pageSize = 20;
 
   protected readonly tabIndex = signal(0);
+  /** 10-B (M3): ?tab=review — mở thẳng tab "Chờ tôi kiểm tra / phê duyệt" từ tổng quan. */
+  readonly tab = input<string>();
   protected readonly page = signal(1);
   protected readonly result = signal<MyTasksResult | null>(null);
   protected readonly queue = signal<ReviewQueueRow[]>([]);
   protected readonly loading = signal(false);
   protected readonly selectedId = signal<string | null>(null);
   protected readonly users = signal<UserOption[]>([]);
-  private readonly tab = computed(() => TABS[this.tabIndex()]?.key ?? null);
+  private readonly tabKey = computed(() => TABS[this.tabIndex()]?.key ?? null);
 
   constructor() {
     effect(() => {
-      const tab = this.tab();
+      if (this.tab() === 'review') untracked(() => this.tabIndex.set(TABS.length));
+    });
+    effect(() => {
+      const tab = this.tabKey();
       const page = this.page();
       untracked(() => this.load(tab, page));
     });
@@ -260,7 +266,7 @@ export class MyTasksPage {
   }
 
   protected reload(): void {
-    this.load(this.tab(), this.page());
+    this.load(this.tabKey(), this.page());
   }
 
   private load(tab: MyTab | null, page: number): void {

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzIconModule } from 'ng-zorro-antd/icon';
 import { NzInputModule } from 'ng-zorro-antd/input';
@@ -46,6 +46,7 @@ export class ContractListPage implements OnInit {
   private readonly api = inject(ContractsApi);
   private readonly message = inject(NzMessageService);
 
+  private readonly route = inject(ActivatedRoute);
   protected readonly statusLabels = CONTRACT_STATUS_LABELS;
   protected readonly statusColors = CONTRACT_STATUS_COLORS;
   protected readonly statusOptions = CONTRACT_STATUS_OPTIONS;
@@ -60,6 +61,9 @@ export class ContractListPage implements OnInit {
   protected status: ContractStatus | null = null;
 
   ngOnInit(): void {
+    // 10-B (M3): mở từ thẻ "Hợp đồng đang thực hiện" của tổng quan (?status=IN_PROGRESS).
+    const status = this.route.snapshot.queryParamMap.get('status');
+    if (status && status in this.statusLabels) this.status = status as ContractStatus;
     this.load();
   }
 

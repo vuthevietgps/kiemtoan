@@ -4,9 +4,10 @@ import { seedReportData } from './utils/report-fixtures';
 import { createTestContext, TestContext } from './utils/test-app';
 import { relogin } from './utils/auth-flow';
 
+/** 10-D (M4): giá trị HĐ theo ngày duyệt (`contractValue`), kèm đã xuất hoá đơn / đã thu. */
 interface RevenueBody {
-  rows: { name: string; contracts: number; subtotal: string }[];
-  totals: { contracts: number; subtotal: string };
+  rows: { name: string; contracts: number; contractValue: string }[];
+  totals: { contracts: number; contractValue: string };
 }
 interface ReceivablesBody {
   rows: {
@@ -17,17 +18,15 @@ interface ReceivablesBody {
     overdue: string;
   }[];
 }
-interface ComplianceBody {
-  totals: { onTime: number; late: number; overdueOpen: number };
-  byStaff: { name: string; late: number }[];
-}
-interface PerformanceBody {
+/** 10-E: Đánh giá năng lực — tab Trợ lý (G4–G6), không có số tiền. */
+interface CapabilityBody {
   rows: {
-    fullName: string;
-    tasksDone: number;
+    user: { id: string; fullName: string };
+    total: number;
+    onTime: number;
     late: number;
-    customers: number;
-    revenue: string;
+    overdue: number;
+    rate: number | null;
   }[];
 }
 
@@ -52,12 +51,12 @@ describe('Reports & Audit log (e2e)', () => {
       .expect(200);
     const body = res.body as RevenueBody;
     expect(
-      body.rows.map((r) => [r.name, r.contracts, Number(r.subtotal)]),
+      body.rows.map((r) => [r.name, r.contracts, Number(r.contractValue)]),
     ).toEqual([
       ['Công ty B', 1, 2_000_000],
       ['Công ty A', 2, 1_500_000],
     ]);
-    expect(Number(body.totals.subtotal)).toBe(3_500_000);
+    expect(Number(body.totals.contractValue)).toBe(3_500_000);
   });
 
   it('nhân viên được cấp quyền tiền chỉ thấy doanh thu khách hàng của mình', async () => {
@@ -73,7 +72,7 @@ describe('Reports & Audit log (e2e)', () => {
       .expect(200);
     const body = res.body as RevenueBody;
     expect(body.totals.contracts).toBe(2);
-    expect(Number(body.totals.subtotal)).toBe(1_500_000);
+    expect(Number(body.totals.contractValue)).toBe(1_500_000);
     await ctx
       .api(ctx.users.director)
       .post(`/users/${ctx.users.staff.id}/access-requests`)
@@ -100,41 +99,35 @@ describe('Reports & Audit log (e2e)', () => {
     ]);
   });
 
-  it('tuân thủ deadline: việc xong sau hạn là trễ hạn', async () => {
+  it('đánh giá năng lực trợ lý: việc xong sau hạn là trễ, không có tiền', async () => {
     const res = await ctx
-      .api(ctx.users.manager)
-      .get(`/reports/task-compliance?${range}`)
+      .api(ctx.users.director)
+      .get(`/reports/capability?role=ASSISTANT&${range}`)
       .expect(200);
-    const body = res.body as ComplianceBody;
-    expect(body.totals).toMatchObject({ onTime: 0, late: 1 });
-    expect(body.byStaff.find((s) => s.name === 'Test staff')?.late).toBe(1);
+    const row = (res.body as CapabilityBody).rows.find(
+      (r) => r.user.fullName === 'Test staff',
+    );
+    expect(row).toMatchObject({ total: 3, onTime: 0, late: 1, overdue: 0 });
+    expect(row?.rate).toBe(0);
+    expect(JSON.stringify(res.body)).not.toContain('revenue');
   });
 
-  it('hiệu suất nhân viên: nhân viên chỉ thấy chính mình', async () => {
+  it('đánh giá năng lực: nhân viên chỉ thấy chính mình (G9)', async () => {
     const res = await ctx
       .api(ctx.users.staff)
-      .get(`/reports/staff-performance?${range}`)
+      .get(`/reports/capability?${range}`)
       .expect(200);
-    const rows = (res.body as PerformanceBody).rows;
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({
-      fullName: 'Test staff',
-      tasksDone: 1,
-      late: 1,
-      customers: 1,
-    });
-    expect(rows[0]).not.toHaveProperty('revenue');
-    const manager = await ctx
-      .api(ctx.users.manager)
-      .get(`/reports/staff-performance?${range}`)
+    const rows = (res.body as CapabilityBody).rows;
+    expect(rows.map((r) => r.user.fullName)).toEqual(['Test staff']);
+    const items = await ctx
+      .api(ctx.users.staff)
+      .get(`/reports/capability/${ctx.users.staff.id}?${range}`)
       .expect(200);
-    expect(
-      Number(
-        (manager.body as PerformanceBody).rows.find(
-          (row) => row.fullName === 'Test staff',
-        )?.revenue,
-      ),
-    ).toBe(1_500_000);
+    expect((items.body as { tasks: unknown[] }).tasks).toHaveLength(3);
+    await ctx
+      .api(ctx.users.staff)
+      .get(`/reports/capability/${ctx.users.staff2.id}?${range}`)
+      .expect(403);
   });
 
   it('xuất CSV UTF-8 có BOM, tải được qua link ?token=', async () => {

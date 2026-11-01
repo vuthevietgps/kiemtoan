@@ -8,44 +8,20 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { hasPermission } from '../../core/access-control/permissions';
-import { redactFinancialFields } from '../../core/access-control/financial-fields';
 import type { AuthUser } from '../../core/auth/auth-user.interface';
 import {
   CurrentUser,
   RequirePermission,
 } from '../../core/auth/decorators/auth.decorators';
-import {
-  ReportExportQueryDto,
-  ReportPeriodQueryDto,
-  RevenueReportQueryDto,
-} from './dto/report-query.dto';
+import { ReportExportQueryDto } from './dto/report-query.dto';
 import { ReportsService } from './reports.service';
-import {
-  complianceCsv,
-  receivablesCsv,
-  revenueCsv,
-  staffPerformanceCsv,
-} from './utils/report-csv.util';
+import { receivablesCsv } from './utils/report-csv.util';
 
 @ApiTags('reports')
 @ApiBearerAuth()
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly reports: ReportsService) {}
-
-  @Get('revenue')
-  @RequirePermission('reports', 'view_financial')
-  async revenue(
-    @Query() query: RevenueReportQueryDto,
-    @CurrentUser() user: AuthUser,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    this.checkExport(query, user);
-    const data = await this.reports.revenue(query, user);
-    return query.format === 'csv'
-      ? this.csv(res, 'bao-cao-doanh-thu', revenueCsv(data))
-      : data;
-  }
 
   @Get('receivables')
   @RequirePermission('reports', 'view_financial')
@@ -59,41 +35,6 @@ export class ReportsController {
     return query.format === 'csv'
       ? this.csv(res, 'bao-cao-cong-no', receivablesCsv(data))
       : data;
-  }
-
-  @Get('task-compliance')
-  @RequirePermission('reports', 'view_operations')
-  async taskCompliance(
-    @Query() query: ReportPeriodQueryDto,
-    @CurrentUser() user: AuthUser,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    this.checkExport(query, user);
-    const data = await this.reports.taskCompliance(query, user);
-    return query.format === 'csv'
-      ? this.csv(res, 'bao-cao-tuan-thu-deadline', complianceCsv(data))
-      : data;
-  }
-
-  @Get('staff-performance')
-  @RequirePermission('reports', 'view_operations')
-  async staffPerformance(
-    @Query() query: ReportPeriodQueryDto,
-    @CurrentUser() user: AuthUser,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    this.checkExport(query, user);
-    const data = await this.reports.staffPerformance(query, user);
-    const financial = hasPermission(user, 'finance', 'view');
-    return query.format === 'csv'
-      ? this.csv(
-          res,
-          'bao-cao-hieu-suat-nhan-vien',
-          staffPerformanceCsv(data, financial),
-        )
-      : financial
-        ? data
-        : redactFinancialFields(data);
   }
 
   /** Xuất file cần thêm quyền reports:export. */

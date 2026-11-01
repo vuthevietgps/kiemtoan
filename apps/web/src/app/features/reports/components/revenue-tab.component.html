@@ -1,0 +1,203 @@
+<app-report-toolbar
+  report="revenue"
+  [filterParams]="{ groupBy: groupBy() }"
+  (filterApplied)="applyFilter($event)"
+  [note]="
+    'Kỳ này so cùng kỳ năm trước. ' +
+    measures[0].label +
+    ': ' +
+    measures[0].hint +
+    '; ' +
+    measures[1].label +
+    ': ' +
+    measures[1].hint +
+    '; ' +
+    measures[2].label +
+    ': ' +
+    measures[2].hint +
+    '.'
+  "
+  fileName="bao-cao-doanh-thu.xlsx"
+  [download]="download"
+  [printable]="printable()"
+/>
+<nz-select class="group" [ngModel]="groupBy()" (ngModelChange)="changeGroup($event)">
+  @for (o of options; track o.value) {
+    <nz-option [nzValue]="o.value" [nzLabel]="'Nhóm theo: ' + o.label" />
+  }
+</nz-select>
+
+@if (report.error(); as err) {
+  <nz-alert nzType="error" nzShowIcon [nzMessage]="message(err)" />
+}
+@if (report.value(); as r) {
+  @if (r.rows.length) {
+    <div echarts class="chart" [options]="chart()" (chartClick)="onChartClick($event)"></div>
+  }
+  <nz-table
+    #t
+    [nzData]="r.rows"
+    [nzShowPagination]="r.rows.length > 20"
+    [nzPageSize]="20"
+    nzSize="small"
+    [nzScroll]="{ x: '900px' }"
+    nzNoResult="Không có số liệu trong kỳ"
+  >
+    <thead>
+      <tr>
+        <th>{{ groupLabel() }}</th>
+        <th nzWidth="70px" class="text-right">Số HĐ</th>
+        @for (m of measures; track m.key) {
+          <th nzWidth="170px" class="text-right">{{ m.label }}</th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of t.data; track row.key) {
+        <tr class="row" [class.picked]="picked()?.key === row.key" (click)="pick(row)">
+          <td>{{ row.name }}</td>
+          <td class="text-right">{{ row.contracts }}</td>
+          @for (m of measures; track m.key) {
+            <td class="text-right">
+              @if (row[m.key] === null) {
+                <span class="muted">—</span>
+              } @else {
+                {{ row[m.key] | vnd }}
+                <div class="muted">
+                  năm trước {{ row.previous[m.key] | vnd }}
+                  <span
+                    [class.up]="(row.change[m.key] ?? 0) > 0"
+                    [class.down]="(row.change[m.key] ?? 0) < 0"
+                    >{{ pct(row.change[m.key]) }}</span
+                  >
+                </div>
+              }
+            </td>
+          }
+        </tr>
+      }
+    </tbody>
+    <tfoot>
+      <tr>
+        <td><b>Tổng cộng</b></td>
+        <td class="text-right">
+          <b>{{ r.totals.contracts }}</b>
+        </td>
+        @for (m of measures; track m.key) {
+          <td class="text-right">
+            <b>{{ r.totals[m.key] | vnd }}</b>
+            <div class="muted">
+              năm trước {{ r.totals.previous[m.key] | vnd }} · {{ pct(r.totals.change[m.key]) }}
+            </div>
+          </td>
+        }
+      </tr>
+    </tfoot>
+  </nz-table>
+
+  <h4>
+    Chi tiết {{ picked() ? '— ' + picked()!.name : 'kỳ này' }}
+    @if (picked()) {
+      <a (click)="picked.set(null)">(xem tất cả)</a>
+    }
+  </h4>
+  <nz-tabs nzSize="small">
+    <nz-tab [nzTitle]="'Hợp đồng duyệt (' + details().contracts.length + ')'">
+      <nz-table
+        #c
+        [nzData]="details().contracts"
+        [nzPageSize]="10"
+        nzSize="small"
+        [nzScroll]="{ x: '560px' }"
+        nzNoResult="Không có"
+      >
+        <thead>
+          <tr>
+            <th>Mã HĐ</th>
+            <th>Khách hàng</th>
+            <th>Ngày duyệt</th>
+            <th class="text-right">Trước VAT</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (x of c.data; track x.contractId) {
+            <tr>
+              <td>
+                <a [routerLink]="['/contracts', x.contractId]">{{ x.contractCode }}</a>
+              </td>
+              <td>{{ x.customerName }}</td>
+              <td>{{ date(x.date) }}</td>
+              <td class="text-right">{{ x.amount | vnd }}</td>
+            </tr>
+          }
+        </tbody>
+      </nz-table>
+    </nz-tab>
+    <nz-tab [nzTitle]="'Hoá đơn (' + details().invoices.length + ')'">
+      <nz-table
+        #i
+        [nzData]="details().invoices"
+        [nzPageSize]="10"
+        nzSize="small"
+        [nzScroll]="{ x: '640px' }"
+        nzNoResult="Không có"
+      >
+        <thead>
+          <tr>
+            <th>Hoá đơn</th>
+            <th>Mã HĐ</th>
+            <th>Khách hàng</th>
+            <th>Ngày lập</th>
+            <th class="text-right">Trước VAT</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (x of i.data; track x.id) {
+            <tr>
+              <td>
+                <a routerLink="/invoices" [queryParams]="{ id: x.id }">{{ x.identity || '—' }}</a>
+              </td>
+              <td>{{ x.contractCode }}</td>
+              <td>{{ x.customerName }}</td>
+              <td>{{ date(x.date) }}</td>
+              <td class="text-right">{{ x.amount | vnd }}</td>
+            </tr>
+          }
+        </tbody>
+      </nz-table>
+    </nz-tab>
+    <nz-tab [nzTitle]="'Phiếu thu (' + details().payments.length + ')'">
+      <nz-table
+        #p
+        [nzData]="details().payments"
+        [nzPageSize]="10"
+        nzSize="small"
+        [nzScroll]="{ x: '600px' }"
+        nzNoResult="Không có"
+      >
+        <thead>
+          <tr>
+            <th>Phiếu</th>
+            <th>Mã HĐ</th>
+            <th>Khách hàng</th>
+            <th>Ngày tiền về</th>
+            <th class="text-right">Số tiền</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (x of p.data; track x.id) {
+            <tr>
+              <td>
+                <a routerLink="/payments" [queryParams]="{ id: x.id }">{{ x.code }}</a>
+              </td>
+              <td>{{ x.contractCode }}</td>
+              <td>{{ x.customerName }}</td>
+              <td>{{ date(x.date) }}</td>
+              <td class="text-right">{{ x.amount | vnd }}</td>
+            </tr>
+          }
+        </tbody>
+      </nz-table>
+    </nz-tab>
+  </nz-tabs>
+}

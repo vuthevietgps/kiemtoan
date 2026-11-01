@@ -1,13 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NzButtonModule } from 'ng-zorro-antd/button';
 import { NzInputModule } from 'ng-zorro-antd/input';
 import { NzSelectModule } from 'ng-zorro-antd/select';
 import { AuthService } from '../../../core/auth/auth.service';
 import { PageHeaderComponent } from '../../../shared/components/page-header.component';
 import { TaskDocumentsComponent } from '../components/task-documents.component';
-import { DocumentRequestQuery } from '../data-access/document-requests.api';
+import { DocumentRequestQuery, WAITING_STATUSES } from '../data-access/document-requests.api';
 import { CustomerOption, TasksApi } from '../data-access/tasks.api';
 import { DOCUMENT_REQUEST_LABELS, DocumentRequestStatus } from '../task-labels';
 
@@ -50,6 +50,7 @@ import { DOCUMENT_REQUEST_LABELS, DocumentRequestStatus } from '../task-labels';
           [ngModel]="status()"
           (ngModelChange)="status.set($event ?? null)"
         >
+          <nz-option nzValue="WAITING" nzLabel="Chờ khách (đã yêu cầu + cần bổ sung)" />
           @for (s of statuses; track s[0]) {
             <nz-option [nzValue]="s[0]" [nzLabel]="s[1].label" />
           }
@@ -89,13 +90,19 @@ export class DocumentRequestsPage {
   ][];
   protected readonly customers = signal<CustomerOption[]>([]);
   protected readonly customerId = signal<string | null>(null);
-  protected readonly status = signal<DocumentRequestStatus | null>(null);
+  /** WAITING = nhóm "Chờ khách cung cấp hồ sơ" của tổng quan (10-B). */
+  protected readonly status = signal<DocumentRequestStatus | 'WAITING' | null>(
+    inject(ActivatedRoute).snapshot.queryParamMap.get('status') === 'WAITING' ? 'WAITING' : null,
+  );
   protected readonly period = signal<string | null>(null);
-  protected readonly query = computed<DocumentRequestQuery>(() => ({
-    customerId: this.customerId(),
-    status: this.status(),
-    period: this.period(),
-  }));
+  protected readonly query = computed<DocumentRequestQuery>(() => {
+    const status = this.status();
+    return {
+      customerId: this.customerId(),
+      ...(status === 'WAITING' ? { statuses: WAITING_STATUSES } : { status }),
+      period: this.period(),
+    };
+  });
 
   constructor() {
     this.api.customerOptions().subscribe({

@@ -64,6 +64,8 @@ model User {
   notifications          Notification[]
   notificationDeliveries NotificationDelivery[]
   notificationPreference NotificationPreference?
+  reportSavedFilters     ReportSavedFilter[]
+  reportSchedules        ReportSchedule[]
 
   @@index([teamId])
   @@index([accessRoleId])

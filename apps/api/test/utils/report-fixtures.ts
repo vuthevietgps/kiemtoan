@@ -20,6 +20,8 @@ export async function seedReportData(ctx: TestContext): Promise<void> {
   const month = currentMonth();
   const prev = previousPeriod(month);
   const today = todayVn();
+  // 10 (M4): giá trị HĐ trên tổng quan tính theo ngày duyệt — duyệt 10:00 giờ VN cùng ngày bắt đầu.
+  const approved = (day: Date) => new Date(day.getTime() + 3 * 3_600_000);
 
   const [a, b] = await Promise.all([
     prisma.customer.create({
@@ -42,6 +44,7 @@ export async function seedReportData(ctx: TestContext): Promise<void> {
       customerId: a.id,
       ownerId: users.staff.id,
       startDate: month.from,
+      approvedAt: approved(month.from),
       status: ContractStatus.IN_PROGRESS,
       subtotal: 1_000_000,
       vatAmount: 100_000,
@@ -65,6 +68,7 @@ export async function seedReportData(ctx: TestContext): Promise<void> {
       customerId: b.id,
       ownerId: users.staff2.id,
       startDate: month.from,
+      approvedAt: approved(month.from),
       status: ContractStatus.NOT_STARTED,
       subtotal: 2_000_000,
       vatAmount: 200_000,
@@ -101,6 +105,7 @@ export async function seedReportData(ctx: TestContext): Promise<void> {
       customerId: a.id,
       ownerId: users.staff.id,
       startDate: prev.from,
+      approvedAt: approved(prev.from),
       status: ContractStatus.COMPLETED,
       subtotal: 500_000,
       vatAmount: 50_000,

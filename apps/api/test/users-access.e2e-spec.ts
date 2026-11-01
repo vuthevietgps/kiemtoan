@@ -121,7 +121,7 @@ describe('User visibility and profile isolation', () => {
     ])
       expect(text).not.toContain(key);
     await ctx.api(ctx.users.staff).get('/users').expect(403);
-    await ctx.api(ctx.users.admin).get('/dashboard').expect(403);
+    await ctx.api(ctx.users.admin).get('/dashboard/operations').expect(403);
   });
   it('ignores role injection in self-profile updates and restricts query tokens', async () => {
     await ctx
@@ -291,7 +291,7 @@ describe('Custom roles and teams', () => {
       'customers:view',
       'tasks:view',
     ]);
-    await ctx.api(ctx.users.staff2).get('/dashboard').expect(403);
+    await ctx.api(ctx.users.staff2).get('/dashboard/operations').expect(403);
     await ctx
       .api(ctx.users.director)
       .delete(`/users/access-roles/${roleId}`)

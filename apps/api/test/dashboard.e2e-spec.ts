@@ -1,5 +1,4 @@
 import { ContractStatus, ServiceStatus } from '@prisma/client';
-import type { StatusGroup } from '../src/modules/tasks/task-status.rules';
 import {
   addDays,
   currentMonth,
@@ -16,10 +15,6 @@ interface Money {
   previous: string;
   changePercent: number | null;
 }
-interface TaskItem {
-  title: string;
-  daysLeft: number;
-}
 interface DashboardBody {
   kpis: {
     revenue: Money;
@@ -32,13 +27,10 @@ interface DashboardBody {
   serviceStatus: { completed: number; notCompleted: number };
   paymentStatus: { paid: string; remaining: string };
   recentContracts: { code: string; customerName: string; paidAmount: string }[];
-  myTasks: Record<StatusGroup, number>;
-  myTaskItems: Record<StatusGroup, TaskItem[]>;
-  upcoming: TaskItem[];
-  reportDeadlines: TaskItem[];
 }
 
-describe('Dashboard (e2e)', () => {
+/** 10-B tab Tài chính (M1, M4, M5): như tổng quan demo, chỉ người có quyền tài chính; HĐ theo ngày duyệt. */
+describe('Dashboard tài chính (e2e)', () => {
   let ctx: TestContext;
 
   beforeAll(async () => {
@@ -51,7 +43,7 @@ describe('Dashboard (e2e)', () => {
   });
 
   const load = async (key: 'director' | 'staff') =>
-    (await ctx.api(ctx.users[key]).get('/dashboard').expect(200))
+    (await ctx.api(ctx.users[key]).get('/dashboard/finance').expect(200))
       .body as DashboardBody;
 
   it('giám đốc thấy số liệu toàn công ty, so với kỳ trước', async () => {
@@ -74,17 +66,10 @@ describe('Dashboard (e2e)', () => {
     expect(Number(body.paymentStatus.paid)).toBe(300_000);
     expect(Number(body.paymentStatus.remaining)).toBe(3_000_000);
     expect(body.recentContracts).toHaveLength(4);
-    expect(body.reportDeadlines.map((t) => t.title)).toEqual([
-      'Nộp tờ khai B',
-      'Nộp tờ khai A',
-      'Báo cáo tài chính A',
-    ]);
-    expect(body.myTasks).toEqual({ TODO: 0, IN_PROGRESS: 0, DONE: 0 });
   });
 
-  it('nhân viên chỉ thấy số liệu khách hàng / công việc của mình', async () => {
-    const hidden = await load('staff');
-    expect(hidden.kpis).not.toHaveProperty('revenue');
+  it('nhân viên: không có quyền tài chính → 403; được cấp thì chỉ thấy số liệu khách hàng của mình', async () => {
+    await ctx.api(ctx.users.staff).get('/dashboard/finance').expect(403);
     await ctx
       .api(ctx.users.director)
       .post(`/users/${ctx.users.staff.id}/access-requests`)
@@ -100,17 +85,6 @@ describe('Dashboard (e2e)', () => {
     ).toBe(true);
     const c1 = body.recentContracts.find((c) => c.code === 'HD-T-001');
     expect(Number(c1?.paidAmount)).toBe(300_000);
-    expect(body.myTasks).toEqual({ TODO: 1, IN_PROGRESS: 1, DONE: 1 });
-    expect(body.myTaskItems.TODO.map((t) => t.title)).toEqual([
-      'Nộp tờ khai A',
-    ]);
-    // Việc hạn sau 14 ngày không nằm trong "sắp đến hạn"
-    expect(body.upcoming).toEqual([
-      expect.objectContaining({ title: 'Nộp tờ khai A', daysLeft: 3 }),
-    ]);
-    expect(body.reportDeadlines.map((t) => t.title)).not.toContain(
-      'Nộp tờ khai B',
-    );
   });
 
   it('lọc theo khoảng ngày: kỳ trước chỉ có hợp đồng cũ', async () => {
@@ -118,12 +92,14 @@ describe('Dashboard (e2e)', () => {
     const res = await ctx
       .api(ctx.users.director)
       .get(
-        `/dashboard?from=${formatBusinessDate(prev.from)}&to=${formatBusinessDate(prev.to)}`,
+        `/dashboard/finance?from=${formatBusinessDate(prev.from)}&to=${formatBusinessDate(prev.to)}`,
       )
       .expect(200);
     const body = res.body as DashboardBody;
     expect(Number(body.kpis.revenue.value)).toBe(500_000);
     expect(body.kpis.contracts.new).toBe(1);
+    // M5: kỳ so sánh (trước kỳ trước) bằng 0 → không so được.
+    expect(body.kpis.revenue.changePercent).toBeNull();
   });
 
   it('khoảng ngày ngược bị từ chối (400)', async () => {
@@ -131,13 +107,14 @@ describe('Dashboard (e2e)', () => {
     await ctx
       .api(ctx.users.director)
       .get(
-        `/dashboard?from=${formatBusinessDate(today)}&to=${formatBusinessDate(addDays(today, -1))}`,
+        `/dashboard/finance?from=${formatBusinessDate(today)}&to=${formatBusinessDate(addDays(today, -1))}`,
       )
       .expect(400);
   });
 
   it('quản trị hệ thống không có quyền xem tổng quan (403)', async () => {
-    await ctx.api(ctx.users.admin).get('/dashboard').expect(403);
+    await ctx.api(ctx.users.admin).get('/dashboard/finance').expect(403);
+    await ctx.api(ctx.users.admin).get('/dashboard/operations').expect(403);
   });
 
   it('dữ liệu mẫu đúng trạng thái', async () => {

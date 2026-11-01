@@ -1,0 +1,51 @@
+// Module: reports (đặc tả 10-F — lưu bộ lọc M11, hẹn gửi định kỳ M12)
+
+enum ReportScheduleFrequency {
+  WEEKLY // Thứ 2 hằng tuần, 07:30
+  MONTHLY // Ngày 1 hằng tháng, 07:30
+}
+
+// Bộ lọc riêng của từng người (M11): không chia sẻ.
+model ReportSavedFilter {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  /// revenue | deadline-compliance | contracts | customers | capability
+  report    String
+  name      String
+  /// Tham số báo cáo đã kiểm tra (from, to, và lọc riêng của từng báo cáo).
+  params    Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user     User            @relation(fields: [userId], references: [id])
+  schedule ReportSchedule?
+
+  @@unique([userId, report, name])
+  @@map("report_saved_filters")
+}
+
+// Hẹn gửi một bộ lọc đã lưu cho chính chủ (M12). Mỗi lượt gửi là một dòng notification_deliveries
+// (đối tượng REPORT, khoá duy nhất theo kỳ gửi) nên chạy lại / khởi động lại không gửi trùng.
+model ReportSchedule {
+  id            String                  @id @default(uuid()) @db.Uuid
+  userId        String                  @map("user_id") @db.Uuid
+  savedFilterId String                  @unique @map("saved_filter_id") @db.Uuid
+  frequency     ReportScheduleFrequency
+  enabled       Boolean                 @default(true)
+  /// Lúc bật gần nhất: mốc gửi trước thời điểm này không gửi bù.
+  activeFrom    DateTime                @default(now()) @map("active_from") @db.Timestamptz
+  lastSentAt    DateTime?               @map("last_sent_at") @db.Timestamptz
+  /// Kết quả lượt gần nhất: SENT | NOT_EMAILED | FAILED | STOPPED.
+  lastResult    String?                 @map("last_result")
+  /// Lý do tự dừng (mất quyền, tài khoản ngừng hoạt động).
+  stoppedReason String?                 @map("stopped_reason")
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+
+  user        User              @relation(fields: [userId], references: [id])
+  savedFilter ReportSavedFilter @relation(fields: [savedFilterId], references: [id], onDelete: Cascade)
+
+  @@index([enabled])
+  @@index([userId])
+  @@map("report_schedules")
+}

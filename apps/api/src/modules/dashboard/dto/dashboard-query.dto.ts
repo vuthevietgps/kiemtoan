@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsOptional } from 'class-validator';
+import { IsDateString, IsIn, IsOptional } from 'class-validator';
 
 /** Khoảng ngày xem tổng quan; bỏ trống = tháng hiện tại. */
 export class DashboardQueryDto {
@@ -12,4 +12,12 @@ export class DashboardQueryDto {
   @IsOptional()
   @IsDateString({}, { message: 'Ngày kết thúc không hợp lệ' })
   to?: string;
+}
+
+/** Danh sách dịch vụ của thẻ "Dịch vụ hoàn thành" (10, M3). */
+export class ServiceListQueryDto extends DashboardQueryDto {
+  @ApiPropertyOptional({ enum: ['done', 'open'] })
+  @IsOptional()
+  @IsIn(['done', 'open'])
+  state?: 'done' | 'open';
 }

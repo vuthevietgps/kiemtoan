@@ -241,6 +241,8 @@ export class ReminderService implements OnApplicationBootstrap {
     const due = await this.prisma.notificationDelivery.findMany({
       where: {
         channel: DeliveryChannel.EMAIL,
+        // Báo cáo định kỳ (10-F) có file đính kèm, do ReportScheduleService gửi.
+        subjectType: { not: 'REPORT' },
         OR: [
           { status: DeliveryStatus.PENDING, nextAttemptAt: { lte: now } },
           {

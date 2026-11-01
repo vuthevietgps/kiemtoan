@@ -1,0 +1,228 @@
+<nz-drawer
+  [nzVisible]="!!person()"
+  [nzWidth]="width()"
+  [nzTitle]="person()?.fullName ?? ''"
+  (nzOnClose)="closed.emit()"
+>
+  <ng-container *nzDrawerContent>
+    @if (items.error(); as err) {
+      <nz-alert nzType="error" nzShowIcon [nzMessage]="message(err)" />
+    }
+    @if (items.value(); as v) {
+      @if (v.tasks) {
+        <p>
+          @if (cell(); as c) {
+            <nz-tag nzMode="closeable" nzColor="blue" (nzOnClose)="clearCell.emit()">
+              {{ cellLabels[c] }}
+            </nz-tag>
+          }
+          <span class="muted"
+            >{{ tasks().length }} việc. Đúng hạn tính theo lần nộp đầu; hạn nội bộ cộng ngày chờ
+            khách đã được trưởng nhóm xác nhận.</span
+          >
+        </p>
+        <nz-table
+          #taskTable
+          [nzData]="tasks()"
+          [nzPageSize]="20"
+          nzSize="small"
+          [nzScroll]="{ x: '900px' }"
+          nzNoResult="Không có việc"
+        >
+          <thead>
+            <tr>
+              <th>Việc</th>
+              <th>Khách hàng</th>
+              <th nzWidth="90px">Hạn gốc</th>
+              <th nzWidth="90px">Hạn</th>
+              <th nzWidth="90px">Nộp lần đầu</th>
+              <th nzWidth="170px">Kết quả</th>
+              <th>Ghi chú</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of taskTable.data; track t.id) {
+              <tr>
+                <td>
+                  <a routerLink="/tasks" [queryParams]="{ id: t.id }">{{ t.code }}</a>
+                  <div>{{ t.title }}</div>
+                </td>
+                <td>{{ t.customer.name }}</td>
+                <td>{{ date(t.originalDueDate) }}</td>
+                <td>{{ date(t.dueDate) }}</td>
+                <td>{{ t.milestone ? date(t.milestone) : '—' }}</td>
+                <td>
+                  @if (t.counted) {
+                    <nz-tag [nzColor]="results[t.result].color"
+                      >{{ results[t.result].label
+                      }}{{ t.days && t.result !== 'ON_TIME' ? ' ' + t.days + ' ngày' : '' }}</nz-tag
+                    >
+                  } @else {
+                    <nz-tag>Không tính (dữ liệu chuyển đổi)</nz-tag>
+                  }
+                </td>
+                <td>
+                  @if (t.statutory) {
+                    <nz-tag [nzColor]="t.statutoryLate ? 'red' : 'default'">Hạn pháp lý</nz-tag>
+                  }
+                  @if (t.waitDays) {
+                    <nz-tag nzColor="purple">Chờ khách {{ t.waitDays }} ngày</nz-tag>
+                  }
+                  @if (t.extensions) {
+                    <nz-tag nzColor="gold">Gia hạn {{ t.extensions }}</nz-tag>
+                  }
+                  @if (t.returnCount) {
+                    <nz-tag nzColor="orange">Trả lại {{ t.returnCount }}</nz-tag>
+                  }
+                  @if (t.originalResult !== t.result) {
+                    <span class="muted">Hạn gốc: {{ results[t.originalResult].label }}</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+      }
+      @if (v.periods?.length) {
+        <h4>Kỳ dịch vụ kế toán ({{ v.periods!.length }})</h4>
+        <nz-table
+          #periodTable
+          [nzData]="v.periods!"
+          [nzPageSize]="20"
+          nzSize="small"
+          [nzScroll]="{ x: '900px' }"
+        >
+          <thead>
+            <tr>
+              <th>Hợp đồng</th>
+              <th>Khách hàng</th>
+              <th>Dịch vụ / kỳ</th>
+              <th nzWidth="90px">Hạn gốc</th>
+              <th nzWidth="90px">Hạn</th>
+              <th>Đạt lúc</th>
+              <th nzWidth="170px">Kết quả</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of periodTable.data; track p.key) {
+              <tr>
+                <td>
+                  <a [routerLink]="['/contracts', p.contract.id]">{{ p.contract.code }}</a>
+                </td>
+                <td>{{ p.customerName }}</td>
+                <td>{{ p.service }} · {{ p.period }}</td>
+                <td>{{ date(p.originalDue) }}</td>
+                <td>{{ date(p.due) }}</td>
+                <td>{{ moment(p.reachedAt) }}</td>
+                <td>
+                  <nz-tag [nzColor]="results[p.result].color"
+                    >{{ results[p.result].label
+                    }}{{ p.days && p.result !== 'ON_TIME' ? ' ' + p.days + ' ngày' : '' }}</nz-tag
+                  >
+                  @if (p.statutory) {
+                    <nz-tag>Hạn pháp lý</nz-tag>
+                  }
+                  @if (p.extended) {
+                    <nz-tag nzColor="gold">Gia hạn</nz-tag>
+                  }
+                  @if (p.waitDays) {
+                    <nz-tag nzColor="purple">Chờ khách {{ p.waitDays }} ngày</nz-tag>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+      }
+      @if (v.audit?.length) {
+        <h4>Hạn hồ sơ kiểm toán ({{ v.audit!.length }})</h4>
+        <nz-table
+          #auditTable
+          [nzData]="v.audit!"
+          [nzPageSize]="20"
+          nzSize="small"
+          [nzScroll]="{ x: '860px' }"
+        >
+          <thead>
+            <tr>
+              <th>Hợp đồng</th>
+              <th>Khách hàng</th>
+              <th>Hạn</th>
+              <th nzWidth="90px">Hạn gốc</th>
+              <th nzWidth="90px">Hạn hiện hành</th>
+              <th>Đạt lúc</th>
+              <th nzWidth="150px">Kết quả</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (a of auditTable.data; track a.deadlineId) {
+              <tr>
+                <td>
+                  <a [routerLink]="['/contracts', a.contract.id]">{{ a.contract.code }}</a>
+                </td>
+                <td>{{ a.customer.name }}</td>
+                <td>{{ kinds[a.kind] }}</td>
+                <td>{{ date(a.originalDue) }}</td>
+                <td>{{ date(a.currentDue) }}</td>
+                <td>{{ moment(a.achievedAt) }}</td>
+                <td>
+                  <nz-tag [nzColor]="results[a.current.result].color">{{
+                    results[a.current.result].label
+                  }}</nz-tag>
+                  @if (a.extensions) {
+                    <nz-tag nzColor="gold" [title]="a.extensionReasons.join('; ')"
+                      >Gia hạn {{ a.extensions }}</nz-tag
+                    >
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+      }
+      @if (v.reviews?.length) {
+        <h4>Lượt soát xét ({{ v.reviews!.length }}) — SLA 2 ngày làm việc</h4>
+        <nz-table
+          #reviewTable
+          [nzData]="v.reviews!"
+          [nzPageSize]="20"
+          nzSize="small"
+          [nzScroll]="{ x: '760px' }"
+        >
+          <thead>
+            <tr>
+              <th>Việc</th>
+              <th>Quyết định</th>
+              <th>Vào cấp</th>
+              <th>Quyết định lúc</th>
+              <th class="text-right">Ngày làm việc</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of reviewTable.data; track r.task.id + r.decidedAt) {
+              <tr>
+                <td>
+                  <a routerLink="/tasks" [queryParams]="{ id: r.task.id }">{{ r.task.code }}</a>
+                  <div>{{ r.task.title }}</div>
+                </td>
+                <td>
+                  <nz-tag [nzColor]="r.decision === 'RETURN' ? 'orange' : 'green'">{{
+                    r.decision === 'RETURN' ? 'Trả lại' : 'Chấp nhận'
+                  }}</nz-tag>
+                </td>
+                <td>{{ moment(r.enteredAt) }}</td>
+                <td>{{ moment(r.decidedAt) }}</td>
+                <td class="text-right">
+                  <nz-tag [nzColor]="r.withinSla ? 'green' : 'red'">{{ r.days }}</nz-tag>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </nz-table>
+      }
+      @if (!v.tasks && !v.periods?.length && !v.audit?.length && !v.reviews?.length) {
+        <p class="muted">Không có dữ liệu trong kỳ.</p>
+      }
+    }
+  </ng-container>
+</nz-drawer>

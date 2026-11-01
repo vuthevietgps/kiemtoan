@@ -61,6 +61,7 @@ import { ServiceTeamsService } from './service-teams/service-teams.service';
     ServiceTeamsService,
   ],
   // 07-D3: thu tiền lập đề nghị thanh toán từ mẫu hồ sơ 04-C.
-  exports: [ContractDocumentsService],
+  // 10-E: báo cáo Đánh giá năng lực đọc hạn hồ sơ kiểm toán theo người (04-F2).
+  exports: [ContractDocumentsService, AuditPeopleQuery],
 })
 export class ContractsModule {}

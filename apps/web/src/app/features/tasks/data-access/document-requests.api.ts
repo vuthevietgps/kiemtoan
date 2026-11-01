@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { forkJoin, map, Observable } from 'rxjs';
 import { API_URL, toParams } from '../../../core/api/api';
 import { DocumentRequestStatus } from '../task-labels';
 
@@ -8,8 +8,13 @@ export interface DocumentRequestQuery {
   taskId?: string | null;
   customerId?: string | null;
   status?: DocumentRequestStatus | null;
+  /** 10-B (M3): nhiều trạng thái — gọi API từng trạng thái rồi gộp (API chỉ lọc một trạng thái). */
+  statuses?: DocumentRequestStatus[] | null;
   period?: string | null;
 }
+
+/** Nhóm "Chờ khách cung cấp hồ sơ" trên tổng quan (10, M2). */
+export const WAITING_STATUSES: DocumentRequestStatus[] = ['REQUESTED', 'NEEDS_SUPPLEMENT'];
 
 export interface DocumentRequestRow {
   id: string;
@@ -38,7 +43,11 @@ export class DocumentRequestsApi {
   private readonly url = `${API_URL}/customer-document-requests`;
 
   list(query: DocumentRequestQuery): Observable<DocumentRequestRow[]> {
-    return this.http.get<DocumentRequestRow[]>(this.url, { params: toParams({ ...query }) });
+    const { statuses, ...rest } = query;
+    const one = (status: DocumentRequestStatus | null | undefined) =>
+      this.http.get<DocumentRequestRow[]>(this.url, { params: toParams({ ...rest, status }) });
+    if (!statuses?.length) return one(rest.status);
+    return forkJoin(statuses.map(one)).pipe(map((lists) => lists.flat()));
   }
 
   markRequested(id: string, body: { method?: string } = {}): Observable<unknown> {

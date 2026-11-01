@@ -124,6 +124,8 @@ export class TasksPage {
   /** Query param ?id= (mở sẵn drawer) và ?customerId= (lọc sẵn). */
   readonly id = input<string>();
   readonly customerId = input<string>();
+  /** 10-B (M3): ?card= — mở từ thẻ tổng quan, lọc như ô đếm cùng tên. */
+  readonly card = input<string>();
 
   protected readonly isManager = computed(() => this.auth.permissions().has('tasks:approve'));
   protected readonly statusOptions = Object.entries(STATUS_FILTER_LABELS) as [
@@ -215,6 +217,12 @@ export class TasksPage {
 
   constructor() {
     effect(() => this.selectedId.set(this.id() ?? null));
+    effect(() => {
+      const card = this.card();
+      untracked(() => {
+        if (card && card in CARD_FILTERS) this.patchFilters(CARD_FILTERS[card as SummaryCardKey]);
+      });
+    });
     effect(() => {
       const customerId = this.customerId() ?? null;
       untracked(() => {

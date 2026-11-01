@@ -1,0 +1,84 @@
+@if (scheduled(); as s) {
+  <nz-alert
+    nzType="info"
+    nzShowIcon
+    [nzMessage]="
+      'Báo cáo định kỳ &quot;' + s.filter.name + '&quot; kỳ ' + date(s.from) + ' – ' + date(s.to)
+    "
+    [nzAction]="download"
+  />
+  <ng-template #download>
+    <button nz-button nzSize="small" type="button" (click)="downloadScheduled()">Tải Excel</button>
+  </ng-template>
+}
+<div class="bar">
+  <nz-select
+    class="pick"
+    nzAllowClear
+    nzPlaceHolder="Bộ lọc đã lưu"
+    nzNotFoundContent="Chưa có bộ lọc"
+    [nzLoading]="filters.isLoading()"
+    [ngModel]="selectedId()"
+    (ngModelChange)="pick($event ?? null)"
+  >
+    @for (f of filters.value() ?? []; track f.id) {
+      <nz-option [nzValue]="f.id" [nzLabel]="f.name" />
+    }
+  </nz-select>
+  <button nz-button type="button" (click)="startSave()">
+    <nz-icon nzType="save" /> Lưu bộ lọc
+  </button>
+  @if (selected(); as f) {
+    <button nz-button type="button" (click)="update()">Cập nhật</button>
+    <button
+      nz-button
+      nzDanger
+      type="button"
+      nz-popconfirm
+      nzPopconfirmTitle="Xoá bộ lọc này? Lịch gửi của bộ lọc cũng bị xoá."
+      (nzOnConfirm)="remove()"
+    >
+      <nz-icon nzType="delete" /> Xoá
+    </button>
+    <nz-select
+      *appCan="'reports:export'"
+      class="freq"
+      nzAllowClear
+      nzPlaceHolder="Hẹn gửi email cho tôi"
+      [ngModel]="f.schedule?.enabled ? f.schedule?.frequency : null"
+      (ngModelChange)="changeSchedule($event ?? null)"
+    >
+      @for (o of options; track o.value) {
+        <nz-option [nzValue]="o.value" [nzLabel]="o.label" />
+      }
+    </nz-select>
+  }
+</div>
+@if (selected()?.schedule?.stoppedReason; as reason) {
+  <nz-alert nzType="warning" nzShowIcon [nzMessage]="'Lịch gửi đã dừng: ' + reason" />
+}
+@if (scheduleNote(); as note) {
+  <p class="note">{{ note }}</p>
+}
+
+<nz-modal
+  [nzVisible]="naming()"
+  nzTitle="Lưu bộ lọc"
+  nzOkText="Lưu"
+  nzCancelText="Huỷ"
+  [nzOkDisabled]="!name().trim()"
+  (nzOnCancel)="naming.set(false)"
+  (nzOnOk)="saveNew()"
+>
+  <ng-container *nzModalContent>
+    <p class="note">Lưu kỳ và các lựa chọn đang xem; chỉ bạn thấy bộ lọc này.</p>
+    <input
+      nz-input
+      maxlength="100"
+      placeholder="Tên bộ lọc"
+      aria-label="Tên bộ lọc"
+      [ngModel]="name()"
+      (ngModelChange)="name.set($event)"
+    />
+  </ng-container>
+</nz-modal>

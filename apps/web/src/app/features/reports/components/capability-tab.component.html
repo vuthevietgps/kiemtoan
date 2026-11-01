@@ -1,0 +1,206 @@
+<div class="filters">
+  <nz-radio-group [ngModel]="role()" (ngModelChange)="role.set($event)" nzButtonStyle="solid">
+    @for (r of roles; track r.value) {
+      <label nz-radio-button [nzValue]="r.value">{{ r.label }}</label>
+    }
+  </nz-radio-group>
+  <nz-select class="domain" [ngModel]="domain()" (ngModelChange)="domain.set($event)">
+    @for (d of domains; track d.value) {
+      <nz-option [nzValue]="d.value" [nzLabel]="d.label" />
+    }
+  </nz-select>
+  @if (teams.value()?.length) {
+    <nz-select
+      class="team"
+      nzAllowClear
+      nzPlaceHolder="Tất cả nhóm"
+      [ngModel]="teamId()"
+      (ngModelChange)="teamId.set($event ?? null)"
+    >
+      @for (t of teams.value(); track t.id) {
+        <nz-option [nzValue]="t.id" [nzLabel]="t.name" />
+      }
+    </nz-select>
+  }
+</div>
+<app-report-toolbar
+  report="capability"
+  [filterParams]="{ role: role(), domain: domain(), teamId: teamId() }"
+  (filterApplied)="applyFilter($event)"
+  note="Mỗi chỉ số một cột, tô màu theo ngưỡng mặc định (đúng hạn ≥ 95% xanh, 85–95% vàng, < 85% đỏ; trễ hạn pháp lý luôn đỏ). Bấm ô để xem danh sách được tính."
+  fileName="danh-gia-nang-luc.xlsx"
+  [download]="download"
+  [printable]="printable()"
+/>
+@if (report.error(); as err) {
+  <nz-alert nzType="error" nzShowIcon [nzMessage]="message(err)" />
+}
+
+@if (role() === 'ASSISTANT') {
+  <nz-table
+    #assistants
+    [nzData]="assistantRows()"
+    [nzLoading]="report.isLoading()"
+    [nzPageSize]="20"
+    nzSize="small"
+    [nzScroll]="{ x: '1240px' }"
+    nzNoResult="Không có số liệu trong kỳ"
+  >
+    <thead>
+      <tr>
+        <th nzLeft nzWidth="170px">Người</th>
+        <th class="text-right">Việc có hạn</th>
+        <th class="text-right">Đúng hạn</th>
+        <th class="text-right">Trễ</th>
+        <th class="text-right">Quá hạn</th>
+        <th class="text-right">Tỷ lệ đúng hạn</th>
+        <th class="text-right">Đúng hạn gốc</th>
+        <th class="text-right">Trễ hạn pháp lý</th>
+        <th class="text-right">Trễ do khách</th>
+        <th class="text-right">Gia hạn</th>
+        <th class="text-right">Tỷ lệ bị trả lại</th>
+        <th class="text-right">Được chấp nhận</th>
+        <th class="text-right">KH đang làm</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (r of assistants.data; track r.user.id) {
+        <tr>
+          <td nzLeft>
+            <a (click)="open(r.user)">{{ r.user.fullName }}</a>
+          </td>
+          <td class="text-right cell" (click)="open(r.user, 'total')">{{ r.total }}</td>
+          <td class="text-right cell" (click)="open(r.user, 'ON_TIME')">{{ r.onTime }}</td>
+          <td class="text-right cell" (click)="open(r.user, 'LATE')">{{ r.late }}</td>
+          <td class="text-right cell" (click)="open(r.user, 'OVERDUE')">{{ r.overdue }}</td>
+          <td class="text-right cell" (click)="open(r.user, 'total')">
+            <span class="tone" [attr.data-tone]="onTimeTone(r.rate)">{{ rate(r.rate) }}</span>
+          </td>
+          <td class="text-right cell" (click)="open(r.user, 'ORIGINAL_MISSED')">
+            {{ rate(r.rateOriginal) }}
+          </td>
+          <td class="text-right cell" (click)="open(r.user, 'STATUTORY')">
+            <span class="tone" [attr.data-tone]="statutoryTone(r.statutoryLate)">{{
+              r.statutoryLate
+            }}</span>
+          </td>
+          <td class="text-right cell" (click)="open(r.user, 'CLIENT')">{{ r.clientDelay }}</td>
+          <td class="text-right cell" (click)="open(r.user, 'EXTENDED')">{{ r.extensions }}</td>
+          <td class="text-right cell" (click)="open(r.user, 'RETURNED')">
+            <span class="tone" [attr.data-tone]="returnTone(r.returnRate)">{{
+              rate(r.returnRate)
+            }}</span>
+          </td>
+          <td class="text-right">{{ r.accepted }}</td>
+          <td class="text-right">{{ r.openCustomers }}</td>
+        </tr>
+      }
+    </tbody>
+  </nz-table>
+} @else {
+  <nz-table
+    #team
+    [nzData]="teamRows()"
+    [nzLoading]="report.isLoading()"
+    [nzPageSize]="20"
+    nzSize="small"
+    [nzScroll]="{ x: '1180px' }"
+    nzNoResult="Không có số liệu trong kỳ"
+  >
+    <thead>
+      <tr>
+        <th nzLeft nzWidth="170px" rowspan="2">Người</th>
+        @if (showAccounting()) {
+          <th colspan="5" class="group">Kỳ dịch vụ kế toán</th>
+        }
+        @if (showAudit()) {
+          <th colspan="3" class="group">Hạn hồ sơ kiểm toán</th>
+        }
+        @if (isLead()) {
+          <th colspan="4" class="group">Soát xét (SLA 2 ngày làm việc)</th>
+        }
+      </tr>
+      <tr>
+        @if (showAccounting()) {
+          <th class="text-right">Số kỳ</th>
+          <th class="text-right">Tỷ lệ đúng hạn</th>
+          <th class="text-right">Đúng hạn gốc</th>
+          <th class="text-right">Trễ hạn pháp lý</th>
+          <th class="text-right">Tỷ lệ gia hạn</th>
+        }
+        @if (showAudit()) {
+          <th class="text-right">Số hạn</th>
+          <th class="text-right">Tỷ lệ đúng hạn</th>
+          <th class="text-right">Đúng hạn gốc</th>
+        }
+        @if (isLead()) {
+          <th class="text-right">Lượt</th>
+          <th class="text-right">TB ngày</th>
+          <th class="text-right">Trong SLA</th>
+          <th class="text-right">Đang quá SLA</th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (r of team.data; track r.user.id) {
+        <tr class="clickable" (click)="open(r.user)">
+          <td nzLeft>
+            <a>{{ r.user.fullName }}</a>
+          </td>
+          @if (showAccounting()) {
+            <td class="text-right">{{ r.periods.total }}</td>
+            <td class="text-right">
+              <span class="tone" [attr.data-tone]="onTimeTone(r.periods.rate)">{{
+                rate(r.periods.rate)
+              }}</span>
+            </td>
+            <td class="text-right">{{ rate(r.periods.rateOriginal) }}</td>
+            <td class="text-right">
+              <span class="tone" [attr.data-tone]="statutoryTone(r.periods.statutoryLate)">{{
+                r.periods.statutoryLate
+              }}</span>
+            </td>
+            <td class="text-right">{{ rate(r.periods.extendedRate) }}</td>
+          }
+          @if (showAudit()) {
+            @if (r.audit; as a) {
+              <td class="text-right">{{ a.total }}</td>
+              <td class="text-right">
+                <span class="tone" [attr.data-tone]="onTimeTone(a.rate)">{{ rate(a.rate) }}</span>
+              </td>
+              <td class="text-right">{{ rate(a.rateOriginal) }}</td>
+            } @else {
+              <td class="text-right">—</td>
+              <td class="text-right">—</td>
+              <td class="text-right">—</td>
+            }
+          }
+          @if (isLead()) {
+            @if (r.reviews; as v) {
+              <td class="text-right">{{ v.count }}</td>
+              <td class="text-right">{{ v.avgDays ?? '—' }}</td>
+              <td class="text-right">
+                <span class="tone" [attr.data-tone]="onTimeTone(v.slaRate)">{{
+                  rate(v.slaRate)
+                }}</span>
+              </td>
+              <td class="text-right">
+                <span class="tone" [attr.data-tone]="statutoryTone(v.overSlaNow)">{{
+                  v.overSlaNow
+                }}</span>
+              </td>
+            }
+          }
+        </tr>
+      }
+    </tbody>
+  </nz-table>
+}
+
+<app-capability-items-drawer
+  [person]="person()"
+  [query]="query()"
+  [cell]="cell()"
+  (closed)="close()"
+  (clearCell)="cell.set(null)"
+/>
